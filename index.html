@@ -74,7 +74,7 @@ function avg(days) {
 function makeNewCycle(startDate, mediaPesoPrec, cycleIndex) {
   const days = Array.from({length:14},(_,i)=>{
     const d=new Date(startDate); d.setDate(d.getDate()+i);
-    return {data:strFromDate(d),giorno:"ok",peso:"",gruppiAllenati:"-"};
+    return {data:strFromDate(d),giorno:"ok",peso:"",gruppiAllenati:""};
   });
   return {id:cycleIndex,startDate:strFromDate(startDate),mediaPesoPrec:mediaPesoPrec??"",mediaPassiSett1:"",mediaPassiSett2:"",days,feedback:Object.fromEntries(SEZIONI_FEEDBACK.map(s=>[s.key,""])),completed:false,exported:false};
 }
@@ -166,6 +166,7 @@ function ScreenSetup({onDone}) {
   const [altezza,setAltezza]=useState("");
   const [dob,setDob]=useState("");
   const [visita,setVisita]=useState("");
+  const [mediaPesoPrec,setMediaPesoPrec]=useState("");
   const age = dob.length===10?calcAge(dob):null;
   const visitaOk = visita.length===10&&!!dateFromStr(visita);
   const valid = nome.trim()&&cognome.trim()&&altezza&&dob.length===10&&!!dateFromStr(dob);
@@ -191,7 +192,11 @@ function ScreenSetup({onDone}) {
           <FInput value={visita} onChange={v=>setVisita(autoFormatDate(v))} placeholder="gg-mm-aaaa"/>
           {visitaOk&&<div style={{fontSize:13,color:"#34C759",fontWeight:600,marginTop:6}}>✓ Visita: {visita}</div>}
         </Card>
-        <Btn onClick={()=>onDone({nome:nome.trim(),cognome:cognome.trim(),altezza,dob,visitaNutrizionista:visita})} disabled={!valid}>Inizia →</Btn>
+        <Card>
+          <Label sub="Opzionale — se disponibile dal report precedente">Media peso settimana precedente (kg)</Label>
+          <FInput value={mediaPesoPrec} onChange={setMediaPesoPrec} placeholder="Es. 71.55" type="number"/>
+        </Card>
+        <Btn onClick={()=>onDone({nome:nome.trim(),cognome:cognome.trim(),altezza,dob,visitaNutrizionista:visita,mediaPesoPrecIniziale:mediaPesoPrec})} disabled={!valid}>Inizia →</Btn>
       </div>
     </div>
   );
@@ -377,7 +382,7 @@ function ScreenDay({cycle,dayIdx,onSave,onBack}) {
   const day=cycle.days[dayIdx];
   const [giorno,setGiorno]=useState(day.giorno);
   const [peso,setPeso]=useState(day.peso);
-  const [gruppi,setGruppi]=useState(day.gruppiAllenati);
+  const [gruppi,setGruppi]=useState(day.gruppiAllenati||"");
   const isToday=day.data===todayStr();
   const weekNum=dayIdx<7?1:2, dayNum=(dayIdx%7)+1;
 
@@ -400,7 +405,7 @@ function ScreenDay({cycle,dayIdx,onSave,onBack}) {
         </Card>
         <Card>
           <Label>Gruppi muscolari allenati</Label>
-          <FSelect value={gruppi} onChange={setGruppi} options={GRUPPI_OPTIONS}/>
+          <FInput value={gruppi} onChange={setGruppi} placeholder="Es. Schiena e Bicipiti"/>
         </Card>
         <Btn onClick={()=>onSave({giorno,peso,gruppiAllenati:gruppi})} disabled={!peso}>Salva →</Btn>
       </div>
@@ -709,7 +714,9 @@ function App() {
 
   const handleNewCycle = () => {
     const prev=cycles.length>0?cycles[cycles.length-1]:null;
-    const mediaPesoPrec=prev?(avg(prev.days.slice(7,14))??avg(prev.days.slice(0,7))??""):"";
+    const mediaPesoPrec = prev
+      ? (avg(prev.days.slice(7,14))??avg(prev.days.slice(0,7))??"")
+      : (profile?.mediaPesoPrecIniziale||"");
     const startDate=profile?.visitaNutrizionista?getCycleStart(profile.visitaNutrizionista):new Date();
     setCycles(p=>[...p,makeNewCycle(startDate,mediaPesoPrec,p.length)]);
   };
