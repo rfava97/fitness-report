@@ -1,0 +1,756 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="apple-mobile-web-app-title" content="Report Fit"/>
+<meta name="theme-color" content="#007AFF"/>
+<title>Report Bisettimanale</title>
+<style>
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  body{margin:0;padding:0;background:#F2F2F7;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display',sans-serif;overscroll-behavior:none;}
+  input,select,textarea,button{font-family:inherit;}
+  input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-spin-button{opacity:1;}
+  /* Safe area insets for iPhone notch/home bar */
+  .safe-top{padding-top:max(52px, calc(44px + env(safe-area-inset-top)));}
+  .safe-bottom{padding-bottom:max(24px, calc(16px + env(safe-area-inset-bottom)));}
+  .safe-bottom-fixed{padding-bottom:max(24px, calc(16px + env(safe-area-inset-bottom)))!important;}
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+<script type="text/babel">
+const { useState, useEffect, useCallback } = React;
+
+// ── Constants ──────────────────────────────────────────────────────────────────
+const GIORNI_OPTIONS = ["ok","cheat","free meal"];
+const GRUPPI_OPTIONS = ["-","Schiena e Bicipiti","Petto e Tricipiti","Gambe","Femorali e Spalle","Petto, Tricipiti e richiamo schiena","Schiena, Tricipiti e Spalle","Braccia","Full Body"];
+const SEZIONI_FEEDBACK = [
+  {key:"aspettoVisivo",  label:"Aspetto visivo in allenamento",  sub:"Es. volumi, vascolarizzazione"},
+  {key:"carichi",        label:"Carichi: stabili, in aumento o calano?"},
+  {key:"sensazioni",     label:"Sensazioni in allenamento"},
+  {key:"appetito",       label:"Appetito",                       sub:"In che momento della giornata?"},
+  {key:"sonno",          label:"Ore di sonno",                   sub:"Riposi bene?"},
+  {key:"pianoAlimentare",label:"Piano alimentare",               sub:"Recuperi, energia, performance"},
+  {key:"bagno",          label:"Quante volte vai in bagno?",     sub:"Feci 1 (stitico) → 7 (diarroico)"},
+  {key:"integratori",    label:"Integratori utilizzati",         sub:"Indicare i gr."},
+  {key:"servizio",       label:"Sei contento del servizio?"},
+  {key:"varie",          label:"Varie"},
+];
+
+// ── Helpers ────────────────────────────────────────────────────────────────────
+const pad = n => String(n).padStart(2,"0");
+const todayStr = () => { const d=new Date(); return `${pad(d.getDate())}-${pad(d.getMonth()+1)}-${d.getFullYear()}`; };
+const dateFromStr = s => { if(!s||s.length<10)return null; const[dd,mm,yyyy]=s.split("-"); return new Date(parseInt(yyyy),parseInt(mm)-1,parseInt(dd)); };
+const strFromDate = d => `${pad(d.getDate())}-${pad(d.getMonth()+1)}-${d.getFullYear()}`;
+
+function autoFormatDate(v) {
+  const nums = v.replace(/\D/g,"").slice(0,8);
+  if(nums.length>4) return nums.slice(0,2)+"-"+nums.slice(2,4)+"-"+nums.slice(4);
+  if(nums.length>2) return nums.slice(0,2)+"-"+nums.slice(2);
+  return nums;
+}
+function calcAge(dobStr) {
+  const dob = dateFromStr(dobStr);
+  if(!dob) return "";
+  const now = new Date();
+  let age = now.getFullYear()-dob.getFullYear();
+  if(now < new Date(now.getFullYear(),dob.getMonth(),dob.getDate())) age--;
+  return age;
+}
+function avg(days) {
+  const vals=(days||[]).map(d=>parseFloat(d.peso)).filter(v=>!isNaN(v)&&v>0);
+  if(!vals.length) return null;
+  return parseFloat((vals.reduce((a,b)=>a+b,0)/vals.length).toFixed(2));
+}
+function makeNewCycle(startDate, mediaPesoPrec, cycleIndex) {
+  const days = Array.from({length:14},(_,i)=>{
+    const d=new Date(startDate); d.setDate(d.getDate()+i);
+    return {data:strFromDate(d),giorno:"ok",peso:"",gruppiAllenati:"-"};
+  });
+  return {id:cycleIndex,startDate:strFromDate(startDate),mediaPesoPrec:mediaPesoPrec??"",mediaPassiSett1:"",mediaPassiSett2:"",days,feedback:Object.fromEntries(SEZIONI_FEEDBACK.map(s=>[s.key,""])),completed:false,exported:false};
+}
+function getCycleStart(visitaStr) {
+  const base = dateFromStr(visitaStr);
+  if(!base) return new Date();
+  const anchor = new Date(base); anchor.setDate(base.getDate()+1);
+  const today = new Date(); today.setHours(0,0,0,0);
+  const diffDays = Math.floor((today-anchor)/(24*60*60*1000));
+  if(diffDays<0) return anchor;
+  const cycleNum = Math.floor(diffDays/14);
+  const start = new Date(anchor); start.setDate(anchor.getDate()+cycleNum*14);
+  return start;
+}
+
+// ── LocalStorage persistence ───────────────────────────────────────────────────
+const STORAGE_KEY = "fitness_report_v1";
+function loadState() {
+  try { const s=localStorage.getItem(STORAGE_KEY); return s?JSON.parse(s):null; } catch{ return null; }
+}
+function saveState(profile,cycles) {
+  try { localStorage.setItem(STORAGE_KEY,JSON.stringify({profile,cycles})); } catch{}
+}
+
+// ── Primitive UI ───────────────────────────────────────────────────────────────
+function Card({children,style={}}) {
+  return <div style={{background:"#fff",borderRadius:16,padding:"16px 18px",boxShadow:"0 1px 4px rgba(0,0,0,0.07)",marginBottom:12,...style}}>{children}</div>;
+}
+function Label({children,sub}) {
+  return <div style={{marginBottom:6}}>
+    <div style={{fontSize:14,fontWeight:600,color:"#1C1C1E"}}>{children}</div>
+    {sub&&<div style={{fontSize:12,color:"#8E8E93",marginTop:1}}>{sub}</div>}
+  </div>;
+}
+function FInput({value,onChange,placeholder,type="text",disabled=false,large=false}) {
+  return <input type={type} value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder} disabled={disabled}
+    style={{width:"100%",padding:large?"16px":"12px 14px",border:"1.5px solid #E5E5EA",borderRadius:12,
+      fontSize:large?28:16,fontWeight:large?700:400,textAlign:large?"center":"left",
+      background:"#F2F2F7",color:disabled?"#8E8E93":"#1C1C1E",outline:"none",display:"block"}}
+    onFocus={e=>{if(!disabled)e.target.style.borderColor="#007AFF"}}
+    onBlur={e=>e.target.style.borderColor="#E5E5EA"}/>;
+}
+function FTextarea({value,onChange,placeholder,rows=3}) {
+  return <textarea value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder} rows={rows}
+    style={{width:"100%",padding:"12px 14px",border:"1.5px solid #E5E5EA",borderRadius:12,
+      fontSize:15,background:"#F2F2F7",color:"#1C1C1E",outline:"none",resize:"vertical",display:"block"}}
+    onFocus={e=>e.target.style.borderColor="#007AFF"}
+    onBlur={e=>e.target.style.borderColor="#E5E5EA"}/>;
+}
+function Seg({options,value,onChange}) {
+  return <div style={{display:"flex",background:"#E5E5EA",borderRadius:10,padding:2,gap:2}}>
+    {options.map(opt=><button key={opt} onClick={()=>onChange(opt)} style={{flex:1,padding:"7px 4px",borderRadius:8,border:"none",cursor:"pointer",
+      fontSize:11,fontWeight:700,textTransform:"uppercase",letterSpacing:0.4,
+      background:value===opt?"#fff":"transparent",
+      color:value===opt?(opt==="ok"?"#34C759":opt==="cheat"?"#FF3B30":"#FF9500"):"#8E8E93",
+      boxShadow:value===opt?"0 1px 3px rgba(0,0,0,0.15)":"none"}}>{opt}</button>)}
+  </div>;
+}
+function FSelect({value,onChange,options}) {
+  return <select value={value} onChange={e=>onChange(e.target.value)}
+    style={{width:"100%",padding:"11px 14px",border:"1.5px solid #E5E5EA",borderRadius:12,fontSize:15,
+      background:"#F2F2F7",color:"#1C1C1E",outline:"none",appearance:"none",WebkitAppearance:"none",display:"block"}}>
+    {options.map(o=><option key={o} value={o}>{o}</option>)}
+  </select>;
+}
+function Btn({children,onClick,variant="primary",disabled=false}) {
+  const bg=disabled?"#C7C7CC":variant==="success"?"linear-gradient(135deg,#34C759,#30D158)":"linear-gradient(135deg,#007AFF,#34AADC)";
+  return <button onClick={onClick} disabled={disabled} style={{width:"100%",padding:"15px",borderRadius:14,border:"none",
+    background:bg,color:"#fff",fontSize:16,fontWeight:700,cursor:disabled?"not-allowed":"pointer",
+    boxShadow:(!disabled&&variant==="primary")?"0 4px 16px rgba(0,122,255,0.28)":"none"}}>{children}</button>;
+}
+function Pill({label,value,color="#007AFF"}) {
+  return <div style={{flex:1,background:"#F2F2F7",borderRadius:12,padding:"12px 8px",textAlign:"center"}}>
+    <div style={{fontSize:11,color:"#8E8E93",fontWeight:500,marginBottom:3}}>{label}</div>
+    <div style={{fontSize:16,fontWeight:700,color:value?color:"#C7C7CC"}}>{value||"—"}</div>
+  </div>;
+}
+function NavBar({title,onBack}) {
+  return <div className="safe-top" style={{background:"#fff",paddingLeft:20,paddingRight:20,paddingBottom:14,borderBottom:"1px solid #E5E5EA",display:"flex",alignItems:"center",gap:12}}>
+    {onBack&&<button onClick={onBack} style={{background:"none",border:"none",color:"#007AFF",fontSize:17,cursor:"pointer",fontWeight:600,flexShrink:0,padding:"4px 0"}}>‹ Indietro</button>}
+    <div style={{fontSize:18,fontWeight:700,color:"#1C1C1E",flex:1}}>{title}</div>
+  </div>;
+}
+
+// ── Screen: Setup ──────────────────────────────────────────────────────────────
+function ScreenSetup({onDone}) {
+  const [nome,setNome]=useState("");
+  const [cognome,setCognome]=useState("");
+  const [altezza,setAltezza]=useState("");
+  const [dob,setDob]=useState("");
+  const [visita,setVisita]=useState("");
+  const age = dob.length===10?calcAge(dob):null;
+  const visitaOk = visita.length===10&&!!dateFromStr(visita);
+  const valid = nome.trim()&&cognome.trim()&&altezza&&dob.length===10&&!!dateFromStr(dob);
+
+  return (
+    <div style={{minHeight:"100vh",background:"#F2F2F7",display:"flex",flexDirection:"column"}}>
+      <div className="safe-top" style={{background:"linear-gradient(150deg,#007AFF,#34AADC)",paddingLeft:28,paddingRight:28,paddingBottom:36}}>
+        <div style={{fontSize:12,fontWeight:700,color:"rgba(255,255,255,0.65)",letterSpacing:1.2,marginBottom:10}}>CONFIGURAZIONE INIZIALE</div>
+        <div style={{fontSize:30,fontWeight:800,color:"#fff",lineHeight:1.25}}>Benvenuto!<br/>Configuriamo<br/>il tuo profilo</div>
+        <div style={{fontSize:14,color:"rgba(255,255,255,0.75)",marginTop:10}}>Lo farai una volta sola. ✅</div>
+      </div>
+      <div style={{flex:1,padding:"24px 20px 40px"}}>
+        <Card><Label>Nome</Label><FInput value={nome} onChange={setNome} placeholder="Es. Riccardo"/></Card>
+        <Card><Label>Cognome</Label><FInput value={cognome} onChange={setCognome} placeholder="Es. Fava"/></Card>
+        <Card><Label>Altezza (cm)</Label><FInput value={altezza} onChange={setAltezza} placeholder="174" type="number"/></Card>
+        <Card>
+          <Label sub="L'età viene calcolata automaticamente">Data di nascita</Label>
+          <FInput value={dob} onChange={v=>setDob(autoFormatDate(v))} placeholder="gg-mm-aaaa"/>
+          {age!==null&&age>=0&&<div style={{fontSize:13,color:"#34C759",fontWeight:600,marginTop:6}}>✓ Età: {age} anni</div>}
+        </Card>
+        <Card>
+          <Label sub="Il ciclo parte sempre il giorno successivo alla visita">📅 Data visita nutrizionista</Label>
+          <FInput value={visita} onChange={v=>setVisita(autoFormatDate(v))} placeholder="gg-mm-aaaa"/>
+          {visitaOk&&<div style={{fontSize:13,color:"#34C759",fontWeight:600,marginTop:6}}>✓ Visita: {visita}</div>}
+        </Card>
+        <Btn onClick={()=>onDone({nome:nome.trim(),cognome:cognome.trim(),altezza,dob,visitaNutrizionista:visita})} disabled={!valid}>Inizia →</Btn>
+      </div>
+    </div>
+  );
+}
+
+// ── Screen: Profilo ────────────────────────────────────────────────────────────
+function ScreenProfilo({profile,onSave,onBack}) {
+  const [visita,setVisita]=useState(profile.visitaNutrizionista||"");
+  const visitaOk = visita.length===10&&!!dateFromStr(visita);
+  function getNextCycleStart(visitaStr) {
+    const base=dateFromStr(visitaStr); if(!base) return null;
+    const anchor=new Date(base); anchor.setDate(base.getDate()+1);
+    const today=new Date(); today.setHours(0,0,0,0);
+    const diff=Math.floor((today-anchor)/(14*24*60*60*1000));
+    const n=diff>=0?diff:0;
+    const s=new Date(anchor); s.setDate(anchor.getDate()+n*14);
+    return s;
+  }
+  const nextStart = visitaOk?getNextCycleStart(visita):null;
+
+  return (
+    <div style={{minHeight:"100vh",background:"#F2F2F7"}}>
+      <NavBar title="Profilo" onBack={onBack}/>
+      <div style={{padding:"20px 20px 60px"}}>
+        <Card style={{background:"linear-gradient(135deg,#007AFF,#34AADC)",color:"#fff"}}>
+          <div style={{fontSize:20,fontWeight:700}}>{profile.nome} {profile.cognome}</div>
+          <div style={{fontSize:14,opacity:0.85,marginTop:2}}>{calcAge(profile.dob)} anni · {profile.altezza} cm</div>
+        </Card>
+        <div style={{fontSize:12,fontWeight:700,color:"#8E8E93",letterSpacing:1,textTransform:"uppercase",marginBottom:8}}>Dati anagrafici</div>
+        <Card style={{padding:"12px 16px"}}>
+          {[["Nome",profile.nome],["Cognome",profile.cognome],["Altezza",`${profile.altezza} cm`],["Data nascita",profile.dob],["Età",`${calcAge(profile.dob)} anni`]].map(([k,v],i,arr)=>(
+            <div key={k} style={{display:"flex",justifyContent:"space-between",paddingBottom:i<arr.length-1?10:0,marginBottom:i<arr.length-1?10:0,borderBottom:i<arr.length-1?"1px solid #F2F2F7":"none"}}>
+              <span style={{fontSize:14,color:"#8E8E93"}}>{k}</span>
+              <span style={{fontSize:14,fontWeight:600,color:"#1C1C1E"}}>{v}</span>
+            </div>
+          ))}
+        </Card>
+        <div style={{fontSize:12,fontWeight:700,color:"#8E8E93",letterSpacing:1,textTransform:"uppercase",marginBottom:8,marginTop:4}}>Visita nutrizionista</div>
+        <Card>
+          <Label sub="I cicli di 14 giorni partono il giorno dopo questa data">📅 Data visita</Label>
+          <FInput value={visita} onChange={v=>setVisita(autoFormatDate(v))} placeholder="gg-mm-aaaa"/>
+          {visitaOk&&nextStart&&(
+            <div style={{marginTop:10,background:"#F0F7FF",borderRadius:10,padding:"10px 12px"}}>
+              <div style={{fontSize:12,fontWeight:700,color:"#007AFF",marginBottom:2}}>CICLO CORRENTE</div>
+              <div style={{fontSize:14,color:"#1C1C1E"}}>Inizia il <b>{strFromDate(nextStart)}</b></div>
+              <div style={{fontSize:12,color:"#8E8E93",marginTop:2}}>Termina il {strFromDate(new Date(nextStart.getTime()+13*24*60*60*1000))}</div>
+            </div>
+          )}
+        </Card>
+        <Btn onClick={()=>onSave({...profile,visitaNutrizionista:visita})} disabled={!visitaOk}>Salva →</Btn>
+      </div>
+    </div>
+  );
+}
+
+// ── Screen: Dashboard ──────────────────────────────────────────────────────────
+function ScreenDashboard({profile,cycles,onOpenDay,onOpenFeedback,onNewCycle,onOpenReport,onOpenPrevious,onOpenProfilo}) {
+  const cycle=cycles.length>0?cycles[cycles.length-1]:null;
+  const today=todayStr();
+  const todayIdx=cycle?cycle.days.findIndex(d=>d.data===today):-1;
+  const sett1=cycle?.days.slice(0,7)??[];
+  const sett2=cycle?.days.slice(7,14)??[];
+  const m1=avg(sett1),m2=avg(sett2);
+  const allDone=cycle?.days.every(d=>d.peso!=="");
+  const fbDone=cycle&&SEZIONI_FEEDBACK.every(s=>cycle.feedback[s.key].trim()!=="");
+  const age=calcAge(profile.dob);
+  const dc=g=>g==="ok"?"#34C759":g==="cheat"?"#FF3B30":"#FF9500";
+
+  return (
+    <div style={{minHeight:"100vh",background:"#F2F2F7",paddingBottom:40}}>
+      <div className="safe-top" style={{background:"linear-gradient(135deg,#007AFF,#34AADC)",paddingLeft:24,paddingRight:24,paddingBottom:24,position:"relative"}}>
+        <button onClick={onOpenProfilo} style={{position:"absolute",top:"max(54px, calc(44px + env(safe-area-inset-top)))",right:20,background:"rgba(255,255,255,0.2)",
+          border:"1px solid rgba(255,255,255,0.35)",borderRadius:10,width:36,height:36,cursor:"pointer",fontSize:18,display:"flex",alignItems:"center",justifyContent:"center"}}>⚙️</button>
+        <div style={{fontSize:13,color:"rgba(255,255,255,0.7)",marginBottom:4}}>📅 {today}</div>
+        <div style={{fontSize:26,fontWeight:800,color:"#fff"}}>Ciao, {profile.nome}! 👋</div>
+        <div style={{fontSize:14,color:"rgba(255,255,255,0.75)",marginTop:2}}>{age} anni · {profile.altezza} cm</div>
+        {profile.visitaNutrizionista&&<div style={{marginTop:6,fontSize:12,color:"rgba(255,255,255,0.7)"}}>🩺 Visita: <b style={{color:"#fff"}}>{profile.visitaNutrizionista}</b></div>}
+        {todayIdx>=0&&(
+          <button onClick={()=>onOpenDay(todayIdx)} style={{marginTop:14,background:"rgba(255,255,255,0.2)",
+            border:"1.5px solid rgba(255,255,255,0.4)",borderRadius:14,padding:"11px 18px",color:"#fff",
+            fontSize:14,fontWeight:700,cursor:"pointer",display:"block",width:"100%",textAlign:"left"}}>
+            {cycle.days[todayIdx].peso?`✓ Peso oggi: ${cycle.days[todayIdx].peso} kg · modifica`:"➕ Inserisci i dati di oggi"}
+          </button>
+        )}
+      </div>
+
+      <div style={{padding:"20px 20px 0"}}>
+        {cycle&&(
+          <>
+            <div style={{fontSize:12,fontWeight:700,color:"#8E8E93",letterSpacing:1,textTransform:"uppercase",marginBottom:10}}>
+              Ciclo #{cycle.id+1} · dal {cycle.startDate}
+            </div>
+            <div style={{display:"flex",gap:8,marginBottom:12}}>
+              <Pill label="Prec." value={cycle.mediaPesoPrec?`${cycle.mediaPesoPrec} kg`:null} color="#8E8E93"/>
+              <Pill label="Media S.1" value={m1?`${m1} kg`:null} color="#007AFF"/>
+              <Pill label="Media S.2" value={m2?`${m2} kg`:null} color="#5AC8FA"/>
+            </div>
+
+            <Card style={{padding:"14px 16px"}}>
+              <div style={{fontSize:13,fontWeight:700,color:"#1C1C1E",marginBottom:10}}>Calendario 14 giorni</div>
+              {[sett1,sett2].map((week,wi)=>(
+                <div key={wi}>
+                  <div style={{fontSize:11,color:"#8E8E93",fontWeight:600,marginBottom:5,textTransform:"uppercase",letterSpacing:0.5}}>Settimana {wi+1}</div>
+                  <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:5,marginBottom:10}}>
+                    {week.map((day,di)=>{
+                      const isToday=day.data===today,has=day.peso!=="",idx=wi*7+di;
+                      return <button key={di} onClick={()=>onOpenDay(idx)} style={{
+                        aspectRatio:"1",borderRadius:10,border:isToday?"2.5px solid #007AFF":"1px solid #E5E5EA",
+                        background:has?(day.giorno==="ok"?"#E8FAF0":day.giorno==="cheat"?"#FFEEED":"#FFF5E6"):"#FAFAFA",
+                        cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:1,padding:2}}>
+                        <div style={{fontSize:8,fontWeight:700,color:has?dc(day.giorno):"#C7C7CC",textTransform:"uppercase"}}>{has?day.giorno.slice(0,2):"·"}</div>
+                        <div style={{fontSize:9,fontWeight:700,color:has?"#1C1C1E":"#C7C7CC",lineHeight:1}}>{has?day.peso:"?"}</div>
+                      </button>;
+                    })}
+                  </div>
+                </div>
+              ))}
+            </Card>
+
+            {(cycle.mediaPassiSett1||cycle.mediaPassiSett2)&&(
+              <div style={{display:"flex",gap:8,marginBottom:12}}>
+                <Pill label="Passi S.1" value={cycle.mediaPassiSett1?parseInt(cycle.mediaPassiSett1).toLocaleString("it-IT"):null} color="#FF9500"/>
+                <Pill label="Passi S.2" value={cycle.mediaPassiSett2?parseInt(cycle.mediaPassiSett2).toLocaleString("it-IT"):null} color="#FF9500"/>
+              </div>
+            )}
+
+            {allDone&&!cycle.exported&&(
+              <button onClick={onOpenFeedback} style={{width:"100%",padding:"16px 18px",borderRadius:16,border:"none",marginBottom:12,
+                background:fbDone?"linear-gradient(135deg,#34C759,#30D158)":"linear-gradient(135deg,#FF9500,#FF6B00)",
+                color:"#fff",fontSize:15,fontWeight:700,cursor:"pointer",
+                display:"flex",justifyContent:"space-between",alignItems:"center",
+                boxShadow:"0 4px 14px rgba(0,0,0,0.12)"}}>
+                <div style={{textAlign:"left"}}>
+                  <div>{fbDone?"✓ Feedback completato":"📝 Compila il feedback"}</div>
+                  <div style={{fontSize:12,fontWeight:500,opacity:0.85,marginTop:2}}>{fbDone?"Ora puoi generare il report":"Le 2 settimane sono concluse"}</div>
+                </div>
+                <span style={{fontSize:22}}>›</span>
+              </button>
+            )}
+
+            {allDone&&fbDone&&!cycle.exported&&<div style={{marginBottom:12}}><Btn variant="success" onClick={onOpenReport}>📊 Genera Report Excel →</Btn></div>}
+
+            {cycle.exported&&(
+              <div style={{background:"#E8FAF0",borderRadius:14,padding:"14px 18px",marginBottom:12,display:"flex",alignItems:"center",gap:12}}>
+                <span style={{fontSize:24}}>✅</span>
+                <div><div style={{fontSize:15,fontWeight:700,color:"#1C1C1E"}}>Report ciclo #{cycle.id+1} generato</div>
+                <div style={{fontSize:13,color:"#8E8E93"}}>Pronto per il prossimo ciclo</div></div>
+              </div>
+            )}
+          </>
+        )}
+
+        {(!cycle||cycle.exported)&&(
+          <button onClick={onNewCycle} style={{width:"100%",padding:"18px",borderRadius:16,border:"2px dashed #007AFF",
+            background:"transparent",color:"#007AFF",fontSize:16,fontWeight:700,cursor:"pointer",marginTop:cycle?8:0}}>
+            {cycle?"➕ Inizia nuovo ciclo bisettimanale":"➕ Inizia il primo ciclo"}
+          </button>
+        )}
+
+        {cycles.filter(c=>c.exported).length>0&&(
+          <div style={{marginTop:16}}>
+            <div style={{fontSize:12,fontWeight:700,color:"#8E8E93",letterSpacing:1,textTransform:"uppercase",marginBottom:8}}>Report precedenti</div>
+            {cycles.filter(c=>c.exported).slice().reverse().map(c=>(
+              <button key={c.id} onClick={()=>onOpenPrevious(c.id)} style={{width:"100%",background:"#fff",borderRadius:14,padding:"14px 18px",
+                border:"none",textAlign:"left",marginBottom:8,cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"center",
+                boxShadow:"0 1px 3px rgba(0,0,0,0.06)"}}>
+                <div>
+                  <div style={{fontSize:15,fontWeight:700,color:"#1C1C1E"}}>Ciclo #{c.id+1}</div>
+                  <div style={{fontSize:13,color:"#8E8E93"}}>{c.startDate} · Media: {avg(c.days.slice(7,14))??avg(c.days.slice(0,7))??"-"} kg</div>
+                </div>
+                <span style={{color:"#C7C7CC",fontSize:20}}>›</span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Screen: Day Entry ──────────────────────────────────────────────────────────
+function ScreenDay({cycle,dayIdx,onSave,onBack}) {
+  const day=cycle.days[dayIdx];
+  const [giorno,setGiorno]=useState(day.giorno);
+  const [peso,setPeso]=useState(day.peso);
+  const [gruppi,setGruppi]=useState(day.gruppiAllenati);
+  const isToday=day.data===todayStr();
+  const weekNum=dayIdx<7?1:2, dayNum=(dayIdx%7)+1;
+
+  return (
+    <div style={{minHeight:"100vh",background:"#F2F2F7"}}>
+      <NavBar title={`Giorno ${dayIdx+1}${isToday?" · Oggi":""}`} onBack={onBack}/>
+      <div style={{padding:"8px 20px 4px",fontSize:13,color:"#8E8E93"}}>Settimana {weekNum}, giorno {dayNum} · {day.data}</div>
+      <div style={{padding:"12px 20px 120px"}}>
+        <Card>
+          <Label>Tipo giornata</Label>
+          <Seg options={GIORNI_OPTIONS} value={giorno} onChange={setGiorno}/>
+          <div style={{marginTop:8,fontSize:11,color:"#8E8E93",lineHeight:1.6}}>
+            <b style={{color:"#34C759"}}>OK</b> = giorno piano &nbsp;·&nbsp; <b style={{color:"#FF9500"}}>Free Meal</b> = grammature rispettate &nbsp;·&nbsp; <b style={{color:"#FF3B30"}}>Cheat</b> = sforato
+          </div>
+        </Card>
+        <Card>
+          <Label>Peso corporeo</Label>
+          <FInput type="number" value={peso} onChange={setPeso} placeholder="71.5" large/>
+          <div style={{textAlign:"center",fontSize:13,color:"#8E8E93",marginTop:4}}>kg</div>
+        </Card>
+        <Card>
+          <Label>Gruppi muscolari allenati</Label>
+          <FSelect value={gruppi} onChange={setGruppi} options={GRUPPI_OPTIONS}/>
+        </Card>
+        <Btn onClick={()=>onSave({giorno,peso,gruppiAllenati:gruppi})} disabled={!peso}>Salva →</Btn>
+      </div>
+    </div>
+  );
+}
+
+// ── Screen: Feedback ───────────────────────────────────────────────────────────
+function ScreenFeedback({cycle,onSave,onBack}) {
+  const [fb,setFb]=useState({...cycle.feedback});
+  const [s1,setS1]=useState(cycle.mediaPassiSett1);
+  const [s2,setS2]=useState(cycle.mediaPassiSett2);
+  const done=SEZIONI_FEEDBACK.every(s=>fb[s.key].trim()!=="");
+
+  return (
+    <div style={{minHeight:"100vh",background:"#F2F2F7"}}>
+      <NavBar title="Feedback bisettimanale" onBack={onBack}/>
+      <div style={{padding:"6px 20px 4px",fontSize:13,color:"#8E8E93"}}>Compila tutti i campi al termine delle 2 settimane</div>
+      <div style={{padding:"12px 20px 120px"}}>
+        <Card><Label>Media passi – Settimana 1</Label><FInput value={s1} onChange={setS1} placeholder="Es. 7675" type="number"/></Card>
+        <Card><Label>Media passi – Settimana 2</Label><FInput value={s2} onChange={setS2} placeholder="Es. 6341" type="number"/></Card>
+        {SEZIONI_FEEDBACK.map(s=>(
+          <Card key={s.key}><Label sub={s.sub}>{s.label}</Label><FTextarea value={fb[s.key]} onChange={v=>setFb(p=>({...p,[s.key]:v}))} placeholder="Scrivi qui…"/></Card>
+        ))}
+        <Btn onClick={()=>onSave(fb,{s1,s2})} disabled={!done}>{done?"Salva feedback →":"Compila tutti i campi"}</Btn>
+      </div>
+    </div>
+  );
+}
+
+// ── Screen: Report ─────────────────────────────────────────────────────────────
+function ScreenReport({profile,cycle,onConfirm,onBack}) {
+  const [exported,setExported]=useState(false);
+  const [loading,setLoading]=useState(false);
+  const today=todayStr();
+  const s1=cycle.days.slice(0,7),s2=cycle.days.slice(7,14);
+  const m1=avg(s1),m2=avg(s2),mp=parseFloat(cycle.mediaPesoPrec);
+  const d1=m1&&!isNaN(mp)?(mp-m1).toFixed(2):null;
+  const d2=m1&&m2?(m1-m2).toFixed(2):null;
+  const dc=v=>v===null?"#8E8E93":parseFloat(v)>0?"#34C759":parseFloat(v)<0?"#FF3B30":"#8E8E93";
+  const age=calcAge(profile.dob);
+
+  const doExport=async()=>{
+    setLoading(true);
+    await new Promise(r=>setTimeout(r,100));
+    try {
+      const wb = XLSX.utils.book_new();
+      const ws = {};
+
+      // Helper: set cell with optional style hint (SheetJS CE doesn't support styles,
+      // but we set the right values/types and merge ranges to match original layout)
+      const sc = (addr, v, t) => { ws[addr] = { v, t: t||( typeof v==='number'?'n':'s') }; };
+
+      // ── ANAGRAFICA (rows 3,5) ──────────────────────────────────────────────
+      sc('B3', `NOME= ${profile.nome} ${profile.cognome}`);
+      sc('F3', `Età= ${calcAge(profile.dob)}`);
+      sc('I3', `DATA= ${today}`);
+      sc('B5', `COGNOME= ${profile.cognome}`);
+      sc('F5', `ALTEZZA= ${profile.altezza}`);
+      const passiVal = `MEDIA PASSI SETTIMANA 1=${cycle.mediaPassiSett1||''}\nMEDIA PASSI SETTIMANA 2= ${cycle.mediaPassiSett2||''}`;
+      sc('J5', passiVal);
+
+      // ── REPORT PRECEDENTE (rows 8-10) ─────────────────────────────────────
+      sc('C8', 'ULTIMA SETTIMANA REPORT PRECEDENTE');
+      sc('C10', 'MEDIA PESO ');
+      sc('D10', '→');
+      const mp = parseFloat(cycle.mediaPesoPrec);
+      if(!isNaN(mp)) sc('E10', mp, 'n');
+
+      // ── INDICAZIONI (col M) ───────────────────────────────────────────────
+      sc('M12', 'INDICAZIONI');
+      sc('M14', "La media peso della settimana report precedente è da inserire manualmente. La media peso della settimana 1 e 2 le calcola in automatico. Il delta peso viene calcolato in automatico.\n\nDove c'è scritto giorno mi devi scrivere:\nCHEAT se hai fatto un pasto libero dove hai mangiato molto e sforato le grammature previste dal piano.\nFREE MEAL se hai fatto un pasto libero dove però hai rispettato all'incirca le grammature previste dal piano.\nOK se è stato un giorno previsto dal piano.");
+
+      // ── PRIMA SETTIMANA (rows 13-23) ──────────────────────────────────────
+      sc('C13', ' PRIMA SETTIMANA REPORT ');
+      sc('B14', 'GIORNO'); sc('D14', 'DATA'); sc('F14', 'PESO'); sc('H14', 'GRUPPI ALLENATI');
+
+      const s1 = cycle.days.slice(0,7);
+      s1.forEach((day,i) => {
+        const r = 15+i;
+        sc(`B${r}`, day.giorno);
+        sc(`D${r}`, day.data);
+        const p = parseFloat(day.peso);
+        if(!isNaN(p)&&p>0) sc(`F${r}`, p, 'n'); else sc(`F${r}`, day.peso||'');
+        sc(`H${r}`, day.gruppiAllenati);
+      });
+
+      // Media e delta settimana 1
+      sc('C23', 'MEDIA PESO ');
+      ws['D23'] = { f: 'AVERAGE(F15:F21)', t: 'n' };
+      sc('G23', 'DELTA PESO ');
+      ws['H23'] = { f: 'E10-D23', t: 'n' };
+
+      // ── SECONDA SETTIMANA (rows 26-36) ────────────────────────────────────
+      sc('C26', ' SECONDA SETTIMANA REPORT ');
+      sc('B27', 'GIORNO'); sc('D27', 'DATA'); sc('F27', 'PESO'); sc('H27', 'GRUPPI ALLENATI');
+
+      const s2 = cycle.days.slice(7,14);
+      s2.forEach((day,i) => {
+        const r = 28+i;
+        sc(`B${r}`, day.giorno);
+        sc(`D${r}`, day.data);
+        const p = parseFloat(day.peso);
+        if(!isNaN(p)&&p>0) sc(`F${r}`, p, 'n'); else sc(`F${r}`, day.peso||'');
+        sc(`H${r}`, day.gruppiAllenati);
+      });
+
+      // Media e delta settimana 2
+      sc('C36', 'MEDIA PESO ');
+      ws['D36'] = { f: 'AVERAGE(F28:F34)', t: 'n' };
+      sc('G36', 'DELTA PESO ');
+      ws['H36'] = { f: 'D23-D36', t: 'n' };
+
+      // ── SEZIONI FEEDBACK (rows 41+) ───────────────────────────────────────
+      const fbSections = [
+        { row:41, label:'ASPETTO VISIVO IN ALLENAMENTO  (ES VOLUMI, VASCOLARIZZAZIONE).', key:'aspettoVisivo', textRow:42 },
+        { row:52, label:'CARICHI STABILI, IN AUMENTO O DIMINUISCONO?', key:'carichi', textRow:53 },
+        { row:63, label:'SENSAZIONI IN ALLENAMENTO.', key:'sensazioni', textRow:64 },
+        { row:74, label:'APPETITO. IN CHE MOMENTO DELLA GIORNATA?', key:'appetito', textRow:75 },
+        { row:85, label:'ORE DI SONNO. RIPOSI BENE?', key:'sonno', textRow:86 },
+        { row:96, label:'COME TI STAI TROVANDO CON IL PIANO ALIMENTARE? DIMMI TUTTE LE TUE SENSAZIONI\n(ES RECUPERI BENE, TI SENTI ENERGICO DURANTE LA GIORNATA, SEI PERFORMANTE IN ALLENAMENTO)', key:'pianoAlimentare', textRow:97 },
+        { row:107, label:'QUANTE VOLTE VAI IN BAGNO? ASPETTO DELLE FECI 1-7.', key:'bagno', textRow:108 },
+        { row:118, label:'INTEGRATORI UTILIZZATI IN QUESTO MOMENTO. INDICARE ANCHE I GR.', key:'integratori', textRow:119 },
+        { row:129, label:'SEI CONTENTO DEL SERVIZIO OFFERTO? COME TI STAI TROVANDO?', key:'servizio', textRow:130 },
+        { row:140, label:'VARIE.', key:'varie', textRow:141 },
+      ];
+      fbSections.forEach(({row,label,key,textRow}) => {
+        sc(`B${row}`, label);
+        sc(`B${textRow}`, cycle.feedback[key]||'');
+      });
+
+      // ── MERGE RANGES (matching original) ──────────────────────────────────
+      ws['!merges'] = [
+        // anagrafica
+        {s:{r:2,c:1},e:{r:2,c:3}},   // B3:D3
+        {s:{r:2,c:5},e:{r:2,c:6}},   // F3:G3
+        {s:{r:2,c:8},e:{r:2,c:9}},   // I3:J3
+        {s:{r:4,c:1},e:{r:4,c:3}},   // B5:D5
+        {s:{r:4,c:5},e:{r:4,c:6}},   // F5:G5
+        {s:{r:4,c:9},e:{r:6,c:12}},  // J5:M7
+        // report precedente
+        {s:{r:7,c:2},e:{r:7,c:7}},   // C8:H8
+        // prima settimana intestazione
+        {s:{r:12,c:2},e:{r:12,c:7}}, // C13:H13
+        {s:{r:13,c:1},e:{r:13,c:2}}, // B14:C14
+        {s:{r:13,c:3},e:{r:13,c:4}}, // D14:E14
+        {s:{r:13,c:5},e:{r:13,c:6}}, // F14:G14
+        {s:{r:13,c:7},e:{r:13,c:9}}, // H14:J14
+        // indicazioni
+        {s:{r:11,c:12},e:{r:12,c:17}}, // M12:R13
+        {s:{r:13,c:12},e:{r:23,c:17}}, // M14:R24
+        // settimana 1 data righe (B:C merged, D:E merged, F:G merged, H:J merged)
+        ...[0,1,2,3,4,5,6].flatMap(i => [
+          {s:{r:14+i,c:1},e:{r:14+i,c:2}},
+          {s:{r:14+i,c:3},e:{r:14+i,c:4}},
+          {s:{r:14+i,c:5},e:{r:14+i,c:6}},
+          {s:{r:14+i,c:7},e:{r:14+i,c:9}},
+        ]),
+        // seconda settimana intestazione
+        {s:{r:25,c:2},e:{r:25,c:7}}, // C26:H26
+        {s:{r:26,c:1},e:{r:26,c:2}}, // B27:C27
+        {s:{r:26,c:3},e:{r:26,c:4}}, // D27:E27
+        {s:{r:26,c:5},e:{r:26,c:6}}, // F27:G27
+        {s:{r:26,c:7},e:{r:26,c:9}}, // H27:J27
+        // settimana 2 data righe
+        ...[0,1,2,3,4,5,6].flatMap(i => [
+          {s:{r:27+i,c:1},e:{r:27+i,c:2}},
+          {s:{r:27+i,c:3},e:{r:27+i,c:4}},
+          {s:{r:27+i,c:5},e:{r:27+i,c:6}},
+          {s:{r:27+i,c:7},e:{r:27+i,c:9}},
+        ]),
+        // sezioni feedback (B:I merged per label e testo)
+        ...fbSections.flatMap(({row,textRow}) => [
+          {s:{r:row-1,c:1},e:{r:row-1,c:8}},
+          {s:{r:textRow-1,c:1},e:{r:textRow+7,c:8}},
+        ]),
+      ];
+
+      // ── SHEET DIMENSIONS ──────────────────────────────────────────────────
+      ws['!ref'] = 'A1:R150';
+      ws['!cols'] = [
+        {wch:8},{wch:12},{wch:12},{wch:14},{wch:8},{wch:10},{wch:13},{wch:8},{wch:22},{wch:10},{wch:10},{wch:10},{wch:20},{wch:20},
+      ];
+      ws['!rows'] = Array.from({length:150},(_,i)=>({hpt:20}));
+      ws['!rows'][95] = {hpt:40}; // row 96 taller
+
+      XLSX.utils.book_append_sheet(wb, ws, 'Foglio1');
+
+      // ── FILENAME: gg-mm-aaaa.xlsx ──────────────────────────────────────────
+      const filename = `${today}.xlsx`;
+      XLSX.writeFile(wb, filename);
+
+    } catch(e) {
+      console.error('Export error:', e);
+      alert('Errore nella generazione del file: ' + e.message);
+    }
+    setLoading(false); setExported(true); onConfirm();
+  };
+
+  return (
+    <div style={{minHeight:"100vh",background:"#F2F2F7"}}>
+      <NavBar title={`Report Ciclo #${cycle.id+1}`} onBack={onBack}/>
+      <div style={{padding:"20px 20px 120px"}}>
+        {!exported?(
+          <>
+            <Card style={{background:"linear-gradient(135deg,#007AFF,#34AADC)",color:"#fff"}}>
+              <div style={{fontSize:20,fontWeight:700}}>{profile.nome} {profile.cognome}</div>
+              <div style={{fontSize:14,opacity:0.85,marginTop:2}}>{age} anni · {profile.altezza} cm · dal {cycle.startDate}</div>
+            </Card>
+            <div style={{fontSize:12,fontWeight:700,color:"#8E8E93",letterSpacing:1,textTransform:"uppercase",marginBottom:8}}>Medie Peso</div>
+            <div style={{display:"flex",gap:8,marginBottom:8}}>
+              <Pill label="Prec." value={cycle.mediaPesoPrec?`${cycle.mediaPesoPrec} kg`:null} color="#8E8E93"/>
+              <Pill label="Sett.1" value={m1?`${m1} kg`:null} color="#007AFF"/>
+              <Pill label="Sett.2" value={m2?`${m2} kg`:null} color="#5AC8FA"/>
+            </div>
+            <div style={{display:"flex",gap:8,marginBottom:14}}>
+              <Pill label="Δ Prec→S1" value={d1?`${d1} kg`:null} color={dc(d1)}/>
+              <Pill label="Δ S1→S2" value={d2?`${d2} kg`:null} color={dc(d2)}/>
+            </div>
+            {[s1,s2].map((w,wi)=>{
+              const cnt=GIORNI_OPTIONS.reduce((a,g)=>({...a,[g]:w.filter(d=>d.giorno===g).length}),{});
+              return <Card key={wi} style={{padding:"12px 16px",marginBottom:8}}>
+                <div style={{fontSize:12,fontWeight:600,color:"#8E8E93",marginBottom:8}}>Settimana {wi+1}</div>
+                <div style={{display:"flex",gap:8}}>
+                  {GIORNI_OPTIONS.map(g=><div key={g} style={{flex:1,textAlign:"center"}}>
+                    <div style={{fontSize:22,fontWeight:700,color:g==="ok"?"#34C759":g==="cheat"?"#FF3B30":"#FF9500"}}>{cnt[g]}</div>
+                    <div style={{fontSize:10,color:"#8E8E93",textTransform:"uppercase"}}>{g}</div>
+                  </div>)}
+                </div>
+              </Card>;
+            })}
+            <div style={{fontSize:12,fontWeight:700,color:"#8E8E93",letterSpacing:1,textTransform:"uppercase",marginBottom:8}}>Feedback</div>
+            {SEZIONI_FEEDBACK.map(s=>cycle.feedback[s.key]?(
+              <Card key={s.key} style={{padding:"12px 16px"}}>
+                <div style={{fontSize:11,fontWeight:700,color:"#8E8E93",marginBottom:4}}>{s.label.toUpperCase()}</div>
+                <div style={{fontSize:14,color:"#1C1C1E",lineHeight:1.5}}>{cycle.feedback[s.key]}</div>
+              </Card>
+            ):null)}
+            <Btn onClick={doExport} disabled={loading}>{loading?"Generazione in corso…":"📊 Genera Report"}</Btn>
+          </>
+        ):(
+          <Card style={{textAlign:"center",padding:"40px 20px",background:"linear-gradient(135deg,#34C759,#30D158)"}}>
+            <div style={{fontSize:60,marginBottom:12}}>✅</div>
+            <div style={{fontSize:22,fontWeight:700,color:"#fff",marginBottom:8}}>Report generato!</div>
+            <div style={{fontSize:14,color:"rgba(255,255,255,0.85)"}}>Ciclo #{cycle.id+1} completato.<br/>Il prossimo partirà con la media peso calcolata automaticamente.</div>
+          </Card>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Screen: Previous ───────────────────────────────────────────────────────────
+function ScreenPrevious({cycle,onBack}) {
+  const s1=cycle.days.slice(0,7),s2=cycle.days.slice(7,14);
+  const m1=avg(s1),m2=avg(s2);
+  const dc=g=>g==="ok"?"#34C759":g==="cheat"?"#FF3B30":"#FF9500";
+  return (
+    <div style={{minHeight:"100vh",background:"#F2F2F7"}}>
+      <NavBar title={`Ciclo #${cycle.id+1} · ${cycle.startDate}`} onBack={onBack}/>
+      <div style={{padding:"20px 20px 60px"}}>
+        <div style={{display:"flex",gap:8,marginBottom:14}}>
+          <Pill label="Prec." value={cycle.mediaPesoPrec?`${cycle.mediaPesoPrec} kg`:null} color="#8E8E93"/>
+          <Pill label="S.1" value={m1?`${m1} kg`:null} color="#007AFF"/>
+          <Pill label="S.2" value={m2?`${m2} kg`:null} color="#5AC8FA"/>
+        </div>
+        {[s1,s2].map((week,wi)=>(
+          <div key={wi}>
+            <div style={{fontSize:12,fontWeight:700,color:"#8E8E93",textTransform:"uppercase",letterSpacing:0.8,marginBottom:6}}>Settimana {wi+1}</div>
+            {week.map((day,di)=>(
+              <Card key={di} style={{padding:"12px 16px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                <div><div style={{fontSize:14,fontWeight:700,color:"#1C1C1E"}}>{day.data}</div><div style={{fontSize:12,color:"#8E8E93"}}>{day.gruppiAllenati}</div></div>
+                <div style={{textAlign:"right"}}><div style={{fontSize:16,fontWeight:700,color:"#1C1C1E"}}>{day.peso||"—"} kg</div><div style={{fontSize:10,fontWeight:700,color:dc(day.giorno),textTransform:"uppercase"}}>{day.giorno}</div></div>
+              </Card>
+            ))}
+          </div>
+        ))}
+        <div style={{fontSize:12,fontWeight:700,color:"#8E8E93",textTransform:"uppercase",letterSpacing:0.8,marginBottom:8,marginTop:8}}>Feedback</div>
+        {SEZIONI_FEEDBACK.map(s=>cycle.feedback[s.key]?(
+          <Card key={s.key} style={{padding:"12px 16px"}}>
+            <div style={{fontSize:11,fontWeight:700,color:"#8E8E93",marginBottom:4}}>{s.label.toUpperCase()}</div>
+            <div style={{fontSize:14,color:"#1C1C1E",lineHeight:1.5}}>{cycle.feedback[s.key]}</div>
+          </Card>
+        ):null)}
+      </div>
+    </div>
+  );
+}
+
+// ── Root App ───────────────────────────────────────────────────────────────────
+function App() {
+  const saved = loadState();
+  const [profile,setProfile] = useState(saved?.profile??null);
+  const [cycles,setCycles] = useState(saved?.cycles??[]);
+  const [screen,setScreen] = useState("dashboard");
+  const [activeDayIdx,setActiveDayIdx] = useState(null);
+  const [viewingCycleId,setViewingCycleId] = useState(null);
+
+  // Persist to localStorage on every change
+  useEffect(()=>{ if(profile) saveState(profile,cycles); },[profile,cycles]);
+
+  const currentCycle=cycles.length>0?cycles[cycles.length-1]:null;
+
+  const handleSetup = p => setProfile(p);
+  const handleSaveProfilo = p => { setProfile(p); setScreen("dashboard"); };
+
+  const handleNewCycle = () => {
+    const prev=cycles.length>0?cycles[cycles.length-1]:null;
+    const mediaPesoPrec=prev?(avg(prev.days.slice(7,14))??avg(prev.days.slice(0,7))??""):"";
+    const startDate=profile?.visitaNutrizionista?getCycleStart(profile.visitaNutrizionista):new Date();
+    setCycles(p=>[...p,makeNewCycle(startDate,mediaPesoPrec,p.length)]);
+  };
+  const handleOpenDay=idx=>{setActiveDayIdx(idx);setScreen("day");};
+  const handleSaveDay=dayData=>{
+    setCycles(p=>p.map((c,i)=>i===p.length-1?{...c,days:c.days.map((d,di)=>di===activeDayIdx?{...d,...dayData}:d)}:c));
+    setScreen("dashboard");
+  };
+  const handleSaveFeedback=(fb,steps)=>{
+    setCycles(p=>p.map((c,i)=>i===p.length-1?{...c,feedback:fb,mediaPassiSett1:steps.s1,mediaPassiSett2:steps.s2}:c));
+    setScreen("dashboard");
+  };
+  const handleConfirmExport=()=>{
+    setCycles(p=>p.map((c,i)=>i===p.length-1?{...c,exported:true,completed:true}:c));
+    setScreen("dashboard");
+  };
+
+  if(!profile) return <ScreenSetup onDone={handleSetup}/>;
+  if(screen==="profilo") return <ScreenProfilo profile={profile} onSave={handleSaveProfilo} onBack={()=>setScreen("dashboard")}/>;
+  if(screen==="day"&&activeDayIdx!==null&&currentCycle)
+    return <ScreenDay cycle={currentCycle} dayIdx={activeDayIdx} onSave={handleSaveDay} onBack={()=>setScreen("dashboard")}/>;
+  if(screen==="feedback"&&currentCycle)
+    return <ScreenFeedback cycle={currentCycle} onSave={handleSaveFeedback} onBack={()=>setScreen("dashboard")}/>;
+  if(screen==="report"&&currentCycle)
+    return <ScreenReport profile={profile} cycle={currentCycle} onConfirm={handleConfirmExport} onBack={()=>setScreen("dashboard")}/>;
+  if(screen==="previous"&&viewingCycleId!==null){
+    const c=cycles.find(c=>c.id===viewingCycleId);
+    if(c) return <ScreenPrevious cycle={c} onBack={()=>setScreen("dashboard")}/>;
+  }
+  return <ScreenDashboard
+    profile={profile} cycles={cycles}
+    onOpenDay={handleOpenDay}
+    onOpenFeedback={()=>setScreen("feedback")}
+    onNewCycle={handleNewCycle}
+    onOpenReport={()=>setScreen("report")}
+    onOpenPrevious={id=>{setViewingCycleId(id);setScreen("previous");}}
+    onOpenProfilo={()=>setScreen("profilo")}
+  />;
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>
