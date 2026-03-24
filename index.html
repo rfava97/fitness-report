@@ -73,14 +73,18 @@ function avg(days) {
   if(!vals.length) return null;
   return parseFloat((vals.reduce((a,b)=>a+b,0)/vals.length).toFixed(2));
 }
-function makeNewCycle(startDate, mediaPesoPrec, cycleIndex) {
-  const days = Array.from({length:14},(_,i)=>{
+function makeNewCycle(startDate, mediaPesoPrec, cycleIndex, numDays) {
+  const n = numDays || 14;
+  const days = Array.from({length:n},(_,i)=>{
     const d=new Date(startDate); d.setDate(d.getDate()+i);
     return {data:strFromDate(d),giorno:"ok",peso:"",gruppiAllenati:""};
   });
   return {id:cycleIndex,startDate:strFromDate(startDate),mediaPesoPrec:mediaPesoPrec??"",mediaPassiSett1:"",mediaPassiSett2:"",days,feedback:Object.fromEntries(SEZIONI_FEEDBACK.map(s=>[s.key,""])),completed:false,exported:false};
 }
+// Returns the start date for a new cycle anchored to the visita.
+// If no visita set, returns today.
 function getCycleStart(visitaStr) {
+  if(!visitaStr) return new Date();
   const base = dateFromStr(visitaStr);
   if(!base) return new Date();
   const anchor = new Date(base); anchor.setDate(base.getDate()+1);
@@ -91,6 +95,17 @@ function getCycleStart(visitaStr) {
   const start = new Date(anchor); start.setDate(anchor.getDate()+cycleNum*14);
   return start;
 }
+// Given a visita date, how many days remain until it (from today)?
+// Returns 0 if visita is today or in the past.
+function daysUntilVisita(visitaStr) {
+  if(!visitaStr) return null;
+  const v = dateFromStr(visitaStr);
+  if(!v) return null;
+  const today = new Date(); today.setHours(0,0,0,0);
+  const diff = Math.floor((v - today)/(24*60*60*1000));
+  return diff; // negative = past, 0 = today, positive = future
+}
+
 
 // ── LocalStorage persistence ───────────────────────────────────────────────────
 const STORAGE_KEY = "fitness_report_v1";
@@ -439,17 +454,26 @@ function ScreenGrafico({cycles, onBack}) {
 }
 
 
-function ScreenDashboard({profile,cycles,onOpenDay,onOpenFeedback,onNewCycle,onOpenReport,onOpenPrevious,onOpenProfilo,onOpenGrafico}) {
+function ScreenDashboard({profile,cycles,onOpenDay,onOpenFeedback,onNewCycle,onOpenReport,onOpenPrevious,onOpenProfilo,onOpenGrafico,onChiudiCiclo}) {
   const cycle=cycles.length>0?cycles[cycles.length-1]:null;
   const today=todayStr();
   const todayIdx=cycle?cycle.days.findIndex(d=>d.data===today):-1;
   const sett1=cycle?.days.slice(0,7)??[];
   const sett2=cycle?.days.slice(7,14)??[];
   const m1=avg(sett1),m2=avg(sett2);
-  const allDone=cycle?.days.every(d=>d.peso!=="");
+  // "done" = all days up to and including today have peso filled
+  const pastDays = cycle ? cycle.days.filter(d => {
+    const dt = dateFromStr(d.data);
+    const td = dateFromStr(today);
+    return dt && td && dt <= td;
+  }) : [];
+  const allDone = pastDays.length > 0 && pastDays.every(d=>d.peso!=="");
   const fbDone=cycle&&SEZIONI_FEEDBACK.every(s=>cycle.feedback[s.key].trim()!=="");
   const age=calcAge(profile.dob);
   const dc=g=>g==="ok"?"#34C759":g==="cheat"?"#FF3B30":"#FF9500";
+  // Visita reset banner
+  const visitaDays = profile.visitaNutrizionista ? daysUntilVisita(profile.visitaNutrizionista) : null;
+  const showVisitaBanner = visitaDays !== null && visitaDays >= 0 && visitaDays <= 3 && cycle && !cycle.exported;
 
   return (
     <div style={{minHeight:"100vh",background:"#F2F2F7",paddingBottom:40}}>
@@ -511,6 +535,22 @@ function ScreenDashboard({profile,cycles,onOpenDay,onOpenFeedback,onNewCycle,onO
               </div>
             )}
 
+            {/* Visita imminente banner */}
+            {showVisitaBanner && (
+              <button onClick={onChiudiCiclo} style={{width:"100%",padding:"16px 18px",borderRadius:16,border:"none",marginBottom:12,
+                background:"linear-gradient(135deg,#FF9500,#FF6B00)",
+                color:"#fff",fontSize:15,fontWeight:700,cursor:"pointer",
+                display:"flex",justifyContent:"space-between",alignItems:"center",
+                boxShadow:"0 4px 14px rgba(255,149,0,0.35)"}}>
+                <div style={{textAlign:"left"}}>
+                  <div>🩺 {visitaDays===0?"Oggi è giorno di visita!":visitaDays===1?"Visita domani!": `Visita tra ${visitaDays} giorni`}</div>
+                  <div style={{fontSize:12,fontWeight:500,opacity:0.9,marginTop:2}}>Chiudi il ciclo corrente e riparti da capo</div>
+                </div>
+                <span style={{fontSize:22}}>›</span>
+              </button>
+            )}
+
+            {/* Feedback CTA — shown when all past days have peso */}
             {allDone&&!cycle.exported&&(
               <button onClick={onOpenFeedback} style={{width:"100%",padding:"16px 18px",borderRadius:16,border:"none",marginBottom:12,
                 background:fbDone?"linear-gradient(135deg,#34C759,#30D158)":"linear-gradient(135deg,#FF9500,#FF6B00)",
@@ -519,7 +559,7 @@ function ScreenDashboard({profile,cycles,onOpenDay,onOpenFeedback,onNewCycle,onO
                 boxShadow:"0 4px 14px rgba(0,0,0,0.12)"}}>
                 <div style={{textAlign:"left"}}>
                   <div>{fbDone?"✓ Feedback completato":"📝 Compila il feedback"}</div>
-                  <div style={{fontSize:12,fontWeight:500,opacity:0.85,marginTop:2}}>{fbDone?"Ora puoi generare il report":"Le 2 settimane sono concluse"}</div>
+                  <div style={{fontSize:12,fontWeight:500,opacity:0.85,marginTop:2}}>{fbDone?"Ora puoi generare il report":"Hai compilato tutti i giorni passati"}</div>
                 </div>
                 <span style={{fontSize:22}}>›</span>
               </button>
@@ -650,7 +690,8 @@ function ScreenReport({profile,cycle,onConfirm,onBack}) {
   const [exported,setExported]=useState(false);
   const [loading,setLoading]=useState(false);
   const today=todayStr();
-  const s1=cycle.days.slice(0,7),s2=cycle.days.slice(7,14);
+  const half=Math.ceil(cycle.days.length/2);
+  const s1=cycle.days.slice(0,half),s2=cycle.days.slice(half);
   const m1=avg(s1),m2=avg(s2),mp=parseFloat(cycle.mediaPesoPrec);
   const d1=m1&&!isNaN(mp)?(mp-m1).toFixed(2):null;
   const d2=m1&&m2?(m1-m2).toFixed(2):null;
@@ -869,7 +910,8 @@ function ScreenReport({profile,cycle,onConfirm,onBack}) {
 
 // ── Screen: Previous ───────────────────────────────────────────────────────────
 function ScreenPrevious({cycle,onBack}) {
-  const s1=cycle.days.slice(0,7),s2=cycle.days.slice(7,14);
+  const half=Math.ceil(cycle.days.length/2);
+  const s1=cycle.days.slice(0,half),s2=cycle.days.slice(half);
   const m1=avg(s1),m2=avg(s2);
   const dc=g=>g==="ok"?"#34C759":g==="cheat"?"#FF3B30":"#FF9500";
   return (
@@ -922,12 +964,43 @@ function App() {
   const handleSaveProfilo = p => { setProfile(p); setScreen("dashboard"); };
 
   const handleNewCycle = () => {
-    const prev=cycles.length>0?cycles[cycles.length-1]:null;
+    const prev = cycles.length>0 ? cycles[cycles.length-1] : null;
     const mediaPesoPrec = prev
-      ? (avg(prev.days.slice(7,14))??avg(prev.days.slice(0,7))??"")
-      : (profile?.mediaPesoPrecIniziale||"");
-    const startDate=profile?.visitaNutrizionista?getCycleStart(profile.visitaNutrizionista):new Date();
-    setCycles(p=>[...p,makeNewCycle(startDate,mediaPesoPrec,p.length)]);
+      ? (avg(prev.days.slice(7,14)) ?? avg(prev.days.slice(0,7)) ?? "")
+      : (profile?.mediaPesoPrecIniziale || "");
+    // First cycle always starts today; subsequent ones anchored to visita
+    const startDate = (cycles.length === 0)
+      ? new Date()
+      : (profile?.visitaNutrizionista ? getCycleStart(profile.visitaNutrizionista) : new Date());
+    setCycles(p => [...p, makeNewCycle(startDate, mediaPesoPrec, p.length)]);
+  };
+
+  // Close current cycle early (visita arrived), trim future days, start fresh
+  const handleChiudiCiclo = () => {
+    const today = new Date(); today.setHours(0,0,0,0);
+    // Trim current cycle to only days up to today
+    setCycles(prev => {
+      const updated = prev.map((c,i) => {
+        if (i !== prev.length-1) return c;
+        const trimmedDays = c.days.filter(d => {
+          const dt = dateFromStr(d.data);
+          return dt && dt <= today;
+        });
+        return {...c, days: trimmedDays, exported: true, completed: true};
+      });
+      // Compute media from trimmed cycle for next cycle
+      const last = updated[updated.length-1];
+      const half = Math.floor(last.days.length/2);
+      const mediaPesoPrec = avg(last.days.slice(half)) ?? avg(last.days) ?? "";
+      // New cycle starts the day after the visita
+      const visita = profile?.visitaNutrizionista;
+      let newStart = new Date();
+      if (visita) {
+        const v = dateFromStr(visita);
+        if (v) { newStart = new Date(v); newStart.setDate(v.getDate()+1); }
+      }
+      return [...updated, makeNewCycle(newStart, mediaPesoPrec, updated.length)];
+    });
   };
   const handleOpenDay=idx=>{setActiveDayIdx(idx);setScreen("day");};
   const handleSaveDay=dayData=>{
@@ -965,6 +1038,7 @@ function App() {
     onOpenPrevious={id=>{setViewingCycleId(id);setScreen("previous");}}
     onOpenProfilo={()=>setScreen("profilo")}
     onOpenGrafico={()=>setScreen("grafico")}
+    onChiudiCiclo={handleChiudiCiclo}
   />;
 }
 
