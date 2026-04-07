@@ -211,9 +211,13 @@ function parseExcelToAppData(file) {
         const nome    = cognome ? nomeRaw.replace(cognome,'').trim() : nomeRaw;
         const altezza = xval(cell('F5'));
         const reportDate = xval(cell('I3'));
-        const passiLines = cell('J5').split('\n');
+        const passiRaw = cell('J5') || cell('K5') || cell('I5') || '';
+        // Split on any line ending, filter empty
+        const passiLines = passiRaw.split(/\r?\n|\r/).filter(l=>l.trim());
         const passi1 = (passiLines[0]&&passiLines[0].match(/(\d+)/))?.[1]||'';
-        const passi2 = (passiLines[1]&&passiLines[1].match(/(\d+)/))?.[1]||'';
+        const passi2 = (passiLines[1]&&passiLines[1].match(/(\d+)/))?.[1]||
+                       // fallback: look for second number in the whole string
+                       ((passiRaw.match(/\d+/g)||[])[1]||'');
         const mediaPesoPrec = num('E10');
 
         const week1=[], week2=[];
@@ -335,6 +339,7 @@ function ScreenImportExcel({onImport, onBack}) {
                         {item.reportDate&&<span>📅 {item.reportDate} · </span>}
                         <span>{item.cycle.days.filter(d=>d.peso).length}/{item.cycle.days.length} giorni</span>
                         {item.cycle.mediaPassiSett1&&<span> · {parseInt(item.cycle.mediaPassiSett1).toLocaleString('it-IT')} passi S.1</span>}
+                        {item.cycle.mediaPassiSett2&&<span> · {parseInt(item.cycle.mediaPassiSett2).toLocaleString('it-IT')} passi S.2</span>}
                       </div>
                     ) : (
                       <div style={{fontSize:12,color:G.red,marginTop:3}}>⚠️ {item.error}</div>
