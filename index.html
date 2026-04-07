@@ -212,12 +212,11 @@ function parseExcelToAppData(file) {
         const altezza = xval(cell('F5'));
         const reportDate = xval(cell('I3'));
         const passiRaw = cell('J5') || cell('K5') || cell('I5') || '';
-        // Split on any line ending, filter empty
+        // Extract number after "=" on each line, e.g. "MEDIA PASSI SETTIMANA 1=7675"
         const passiLines = passiRaw.split(/\r?\n|\r/).filter(l=>l.trim());
-        const passi1 = (passiLines[0]&&passiLines[0].match(/(\d+)/))?.[1]||'';
-        const passi2 = (passiLines[1]&&passiLines[1].match(/(\d+)/))?.[1]||
-                       // fallback: look for second number in the whole string
-                       ((passiRaw.match(/\d+/g)||[])[1]||'');
+        const afterEq = s => { const m=s.match(/=\s*(\d+)/); return m?m[1]:''; };
+        const passi1 = passiLines[0] ? afterEq(passiLines[0]) : '';
+        const passi2 = passiLines[1] ? afterEq(passiLines[1]) : '';
         const mediaPesoPrec = num('E10');
 
         const week1=[], week2=[];
@@ -1073,6 +1072,132 @@ function ScreenProfilo({profile,onSave,onBack}) {
 }
 
 // ── Screen: Grafico ────────────────────────────────────────────────────────────
+// ── PassiChart — bar chart of steps per cycle ──────────────────────────────────
+function PassiChart({cycles}) {
+  // Collect cycles that have at least one passi value
+  const data = cycles
+    .filter(c => c.mediaPassiSett1 || c.mediaPassiSett2)
+    .map(c => ({
+      label: `C${c.id+1}`,
+      startDate: c.startDate,
+      s1: parseInt(c.mediaPassiSett1)||0,
+      s2: parseInt(c.mediaPassiSett2)||0,
+    }));
+
+  if(data.length === 0) return (
+    <Card style={{padding:'14px 16px',marginBottom:14}}>
+      <div style={{fontSize:13,fontWeight:800,color:G.text,marginBottom:4}}>🚶 Media Passi per Ciclo</div>
+      <div style={{fontSize:12,color:G.text3}}>Nessun dato passi disponibile</div>
+    </Card>
+  );
+
+  const allVals = data.flatMap(d=>[d.s1,d.s2]).filter(v=>v>0);
+  const maxVal = Math.max(...allVals);
+  const W = 320, H = 120, PL = 36, PR = 8, PT = 8, PB = 22;
+  const cW = W - PL - PR, cH = H - PT - PB;
+  const barGroupW = cW / data.length;
+  const barW = Math.min(14, barGroupW * 0.35);
+  const gap = 3;
+  const toH = v => v > 0 ? Math.max(4, (v / maxVal) * cH) : 0;
+  const toY = v => PT + cH - toH(v);
+
+  // Y axis labels (round to nearest 1000)
+  const yStep = maxVal > 10000 ? 2000 : 1000;
+  const yLabels = [];
+  for(let v = 0; v <= maxVal; v += yStep) yLabels.push(v);
+  if(yLabels[yLabels.length-1] < maxVal) yLabels.push(Math.ceil(maxVal/yStep)*yStep);
+
+  const avg1 = data.reduce((a,d)=>a+d.s1,0)/data.filter(d=>d.s1>0).length||0;
+  const avg2 = data.reduce((a,d)=>a+d.s2,0)/data.filter(d=>d.s2>0).length||0;
+
+  return (
+    <Card style={{padding:'14px 14px',marginBottom:14}}>
+      <div style={{fontSize:13,fontWeight:800,color:G.text,marginBottom:2}}>🚶 Media Passi per Ciclo</div>
+      <div style={{fontSize:11,color:G.text3,marginBottom:10}}>
+        Media S.1: <b style={{color:G.orange}}>{avg1>0?Math.round(avg1).toLocaleString('it-IT'):'—'}</b>
+        {' · '}
+        Media S.2: <b style={{color:'#8D6E63'}}>{avg2>0?Math.round(avg2).toLocaleString('it-IT'):'—'}</b>
+      </div>
+
+      {/* Legend */}
+      <div style={{display:'flex',gap:14,marginBottom:10}}>
+        {[{c:G.orange,l:'Settimana 1'},{c:'#8D6E63',l:'Settimana 2'}].map(({c,l})=>(
+          <div key={l} style={{display:'flex',alignItems:'center',gap:4}}>
+            <div style={{width:10,height:10,borderRadius:3,background:c,flexShrink:0}}/>
+            <span style={{fontSize:10,color:G.text3,fontWeight:600}}>{l}</span>
+          </div>
+        ))}
+      </div>
+
+      <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{overflow:'visible'}}>
+        {/* Y grid + labels */}
+        {yLabels.filter(v=>v<=maxVal*1.05).map((v,i)=>(
+          <g key={i}>
+            <line x1={PL} y1={toY(v)} x2={W-PR} y2={toY(v)}
+              stroke={G.border} strokeWidth="1" strokeDasharray="3,3"/>
+            <text x={PL-4} y={toY(v)+4} textAnchor="end" fontSize="8" fill={G.text3}>
+              {v>=1000?(v/1000).toFixed(0)+'k':v}
+            </text>
+          </g>
+        ))}
+
+        {/* Bars */}
+        {data.map((d,i)=>{
+          const cx = PL + i * barGroupW + barGroupW/2;
+          const x1 = cx - barW - gap/2;
+          const x2 = cx + gap/2;
+          const h1 = toH(d.s1), h2 = toH(d.s2);
+          const y1 = toY(d.s1), y2 = toY(d.s2);
+          return (
+            <g key={i}>
+              {/* S1 bar */}
+              {d.s1>0&&<>
+                <rect x={x1} y={y1} width={barW} height={h1} rx="3" fill={G.orange} opacity="0.85"/>
+                {h1>14&&<text x={x1+barW/2} y={y1+h1-3} textAnchor="middle" fontSize="7" fill="#fff" fontWeight="700">
+                  {d.s1>=1000?(d.s1/1000).toFixed(1)+'k':d.s1}
+                </text>}
+              </>}
+              {/* S2 bar */}
+              {d.s2>0&&<>
+                <rect x={x2} y={y2} width={barW} height={h2} rx="3" fill="#8D6E63" opacity="0.85"/>
+                {h2>14&&<text x={x2+barW/2} y={y2+h2-3} textAnchor="middle" fontSize="7" fill="#fff" fontWeight="700">
+                  {d.s2>=1000?(d.s2/1000).toFixed(1)+'k':d.s2}
+                </text>}
+              </>}
+              {/* X label */}
+              <text x={cx} y={H-2} textAnchor="middle" fontSize="8" fill={G.text3} fontWeight="700">
+                {d.label}
+              </text>
+            </g>
+          );
+        })}
+
+        {/* Average lines */}
+        {avg1>0&&<line x1={PL} y1={toY(avg1)} x2={W-PR} y2={toY(avg1)}
+          stroke={G.orange} strokeWidth="1" strokeDasharray="4,3" opacity="0.5"/>}
+        {avg2>0&&<line x1={PL} y1={toY(avg2)} x2={W-PR} y2={toY(avg2)}
+          stroke="#8D6E63" strokeWidth="1" strokeDasharray="4,3" opacity="0.5"/>}
+      </svg>
+
+      {/* Cycle detail */}
+      {data.length > 1 && (
+        <div style={{marginTop:8,display:'flex',gap:6,flexWrap:'wrap'}}>
+          {data.map((d,i)=>(
+            <div key={i} style={{background:'#F7FAF5',borderRadius:8,padding:'5px 9px',border:`1px solid ${G.border}`}}>
+              <div style={{fontSize:10,fontWeight:800,color:G.text3}}>{d.label} · {d.startDate}</div>
+              <div style={{fontSize:11,marginTop:2}}>
+                <span style={{color:G.orange,fontWeight:700}}>{d.s1>0?d.s1.toLocaleString('it-IT'):'—'}</span>
+                <span style={{color:G.text3,margin:'0 3px'}}>·</span>
+                <span style={{color:'#8D6E63',fontWeight:700}}>{d.s2>0?d.s2.toLocaleString('it-IT'):'—'}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </Card>
+  );
+}
+
 function ScreenGrafico({cycles,onBack}) {
   // Ranges: 2S=2settimane, 1M=1mese, 3M=3mesi, 1A=1anno
   const RANGES = ['2S','1M','3M','1A'];
@@ -1302,6 +1427,9 @@ function ScreenGrafico({cycles,onBack}) {
         )}
 
         {/* Measurements list */}
+        {/* Passi chart */}
+        <PassiChart cycles={cycles}/>
+
         <SectionLabel>Misurazioni ({points.length})</SectionLabel>
         {points.length===0&&(
           <Card style={{textAlign:'center',padding:'20px',color:G.text3}}>
