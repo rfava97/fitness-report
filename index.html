@@ -457,8 +457,80 @@ function ScreenSetup({onDone, onImport, prefill}) {
   );
 }
 
+// ── PassiCard — always visible, inline editable ────────────────────────────────
+function PassiCard({cycle, onSave}) {
+  const [editing, setEditing] = useState(false);
+  const [s1, setS1] = useState(cycle.mediaPassiSett1||"");
+  const [s2, setS2] = useState(cycle.mediaPassiSett2||"");
+
+  // Sync when cycle changes
+  useEffect(()=>{ setS1(cycle.mediaPassiSett1||""); setS2(cycle.mediaPassiSett2||""); },[cycle.id]);
+
+  const fmt = v => v ? parseInt(v).toLocaleString("it-IT") : null;
+
+  if(!editing) {
+    return (
+      <div style={{marginBottom:14}}>
+        <div style={{display:"flex",gap:8}}>
+          <button onClick={()=>setEditing(true)} style={{flex:1,background:"#F7FAF5",borderRadius:14,
+            padding:"13px 8px",textAlign:"center",border:`1px solid ${cycle.mediaPassiSett1?G.orange+"55":G.border}`,
+            cursor:"pointer"}}>
+            <div style={{fontSize:10,color:G.text3,fontWeight:700,letterSpacing:0.8,textTransform:"uppercase",marginBottom:4}}>Passi S.1</div>
+            <div style={{fontSize:17,fontWeight:800,color:fmt(cycle.mediaPassiSett1)?G.orange:G.border}}>
+              {fmt(cycle.mediaPassiSett1)||<span style={{fontSize:13,fontWeight:600}}>Tocca +</span>}
+            </div>
+          </button>
+          <button onClick={()=>setEditing(true)} style={{flex:1,background:"#F7FAF5",borderRadius:14,
+            padding:"13px 8px",textAlign:"center",border:`1px solid ${cycle.mediaPassiSett2?G.orange+"55":G.border}`,
+            cursor:"pointer"}}>
+            <div style={{fontSize:10,color:G.text3,fontWeight:700,letterSpacing:0.8,textTransform:"uppercase",marginBottom:4}}>Passi S.2</div>
+            <div style={{fontSize:17,fontWeight:800,color:fmt(cycle.mediaPassiSett2)?G.orange:G.border}}>
+              {fmt(cycle.mediaPassiSett2)||<span style={{fontSize:13,fontWeight:600}}>Tocca +</span>}
+            </div>
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <Card style={{marginBottom:14,padding:"14px 16px"}}>
+      <div style={{fontSize:13,fontWeight:800,color:G.text,marginBottom:12}}>🚶 Media passi settimanali</div>
+      <div style={{display:"flex",gap:10,marginBottom:12}}>
+        <div style={{flex:1}}>
+          <div style={{fontSize:11,fontWeight:700,color:G.text3,marginBottom:5,textTransform:"uppercase",letterSpacing:0.5}}>Settimana 1</div>
+          <input type="number" value={s1} onChange={e=>setS1(e.target.value)} placeholder="Es. 7675"
+            style={{width:"100%",padding:"10px 12px",border:`1.5px solid ${G.border}`,borderRadius:10,
+              fontSize:16,fontWeight:700,background:"#F7FAF5",color:G.text,outline:"none",textAlign:"center"}}
+            onFocus={e=>e.target.style.borderColor=G.orange}
+            onBlur={e=>e.target.style.borderColor=G.border}/>
+        </div>
+        <div style={{flex:1}}>
+          <div style={{fontSize:11,fontWeight:700,color:G.text3,marginBottom:5,textTransform:"uppercase",letterSpacing:0.5}}>Settimana 2</div>
+          <input type="number" value={s2} onChange={e=>setS2(e.target.value)} placeholder="Es. 6341"
+            style={{width:"100%",padding:"10px 12px",border:`1.5px solid ${G.border}`,borderRadius:10,
+              fontSize:16,fontWeight:700,background:"#F7FAF5",color:G.text,outline:"none",textAlign:"center"}}
+            onFocus={e=>e.target.style.borderColor=G.orange}
+            onBlur={e=>e.target.style.borderColor=G.border}/>
+        </div>
+      </div>
+      <div style={{display:"flex",gap:8}}>
+        <button onClick={()=>{onSave(s1,s2);setEditing(false);}} style={{flex:2,padding:"11px",borderRadius:12,border:"none",
+          background:`linear-gradient(135deg,${G.orange},#E65100)`,color:"#fff",fontSize:14,fontWeight:700,cursor:"pointer"}}>
+          Salva
+        </button>
+        <button onClick={()=>{setS1(cycle.mediaPassiSett1||"");setS2(cycle.mediaPassiSett2||"");setEditing(false);}}
+          style={{flex:1,padding:"11px",borderRadius:12,border:`1px solid ${G.border}`,
+            background:"transparent",color:G.text3,fontSize:14,fontWeight:600,cursor:"pointer"}}>
+          Annulla
+        </button>
+      </div>
+    </Card>
+  );
+}
+
 // ── Screen: Dashboard ──────────────────────────────────────────────────────────
-function ScreenDashboard({profile,cycles,onOpenDay,onOpenFeedback,onNewCycle,onOpenReport,onOpenPrevious,onOpenProfilo,onOpenGrafico,onChiudiCiclo}) {
+function ScreenDashboard({profile,cycles,onOpenDay,onOpenFeedback,onNewCycle,onOpenReport,onOpenPrevious,onOpenProfilo,onOpenGrafico,onChiudiCiclo,onSavePassi}) {
   const cycle=cycles.length>0?cycles[cycles.length-1]:null;
   const today=todayStr();
   const todayIdx=cycle?cycle.days.findIndex(d=>d.data===today):-1;
@@ -553,13 +625,8 @@ function ScreenDashboard({profile,cycles,onOpenDay,onOpenFeedback,onNewCycle,onO
               ))}
             </Card>
 
-            {/* Passi */}
-            {(cycle.mediaPassiSett1||cycle.mediaPassiSett2)&&(
-              <div style={{display:"flex",gap:8,marginBottom:14}}>
-                <Pill label="Passi S.1" value={cycle.mediaPassiSett1?parseInt(cycle.mediaPassiSett1).toLocaleString("it-IT"):null} color={G.orange}/>
-                <Pill label="Passi S.2" value={cycle.mediaPassiSett2?parseInt(cycle.mediaPassiSett2).toLocaleString("it-IT"):null} color={G.orange}/>
-              </div>
-            )}
+            {/* Passi — sempre visibili, editabili inline */}
+            <PassiCard cycle={cycle} onSave={onSavePassi}/>
 
             {/* Visita banner */}
             {showVisitaBanner&&(
@@ -1364,6 +1431,9 @@ function App() {
       return [...updated,makeNewCycle(newStart,mediaPesoPrec,updated.length)];
     });
   };
+  const handleSavePassi=(s1,s2)=>{
+    setCycles(p=>p.map((c,i)=>i===p.length-1?{...c,mediaPassiSett1:s1,mediaPassiSett2:s2}:c));
+  };
   const handleOpenDay=idx=>{setActiveDayIdx(idx);setScreen("day");};
   const handleSaveDay=d=>{
     setCycles(p=>p.map((c,i)=>i===p.length-1?{...c,days:c.days.map((dd,di)=>di===activeDayIdx?{...dd,...d}:dd)}:c));
@@ -1404,6 +1474,7 @@ function App() {
     onOpenProfilo={()=>setScreen("profilo")}
     onOpenGrafico={()=>setScreen("grafico")}
     onChiudiCiclo={handleChiudiCiclo}
+    onSavePassi={handleSavePassi}
   />;
 }
 
