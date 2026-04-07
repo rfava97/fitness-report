@@ -546,7 +546,7 @@ function ScreenDashboard({profile,cycles,onOpenDay,onOpenFeedback,onNewCycle,onO
   const fbDone=cycle&&SEZIONI_FEEDBACK.every(s=>cycle.feedback[s.key].trim()!=="");
   const age=calcAge(profile.dob);
   const visitaDays=profile.visitaNutrizionista?daysUntilVisita(profile.visitaNutrizionista):null;
-  const showVisitaBanner=visitaDays!==null&&visitaDays>=0&&visitaDays<=3&&cycle&&!cycle.exported;
+  const showVisitaBanner=visitaDays!==null&&visitaDays>=0&&visitaDays<=5&&cycle&&!cycle.exported;
   const dc=g=>g==="ok"?G.ok:g==="cheat"?G.cheat:G.free;
   const todayDay = cycle&&todayIdx>=0?cycle.days[todayIdx]:null;
 
@@ -639,8 +639,8 @@ function ScreenDashboard({profile,cycles,onOpenDay,onOpenFeedback,onNewCycle,onO
                 display:"flex",justifyContent:"space-between",alignItems:"center",
                 boxShadow:"0 4px 18px rgba(245,124,0,0.35)"}}>
                 <div style={{textAlign:"left"}}>
-                  <div>🩺 {visitaDays===0?"Oggi è giorno di visita!":visitaDays===1?"Visita domani!":`Visita tra ${visitaDays} giorni`}</div>
-                  <div style={{fontSize:12,fontWeight:500,opacity:0.9,marginTop:2}}>Chiudi il ciclo e riparti da capo</div>
+                  <div>🩺 {visitaDays===0?"Oggi è giorno di visita — ciclo chiuso automaticamente":visitaDays===1?"Visita domani — il ciclo si chiuderà automaticamente":`Visita tra ${visitaDays} giorni`}</div>
+                  <div style={{fontSize:12,fontWeight:500,opacity:0.9,marginTop:2}}>{visitaDays===0?"Nuovo ciclo già avviato":"Il giorno della visita il ciclo si chiude da solo"}</div>
                 </div>
                 <span style={{fontSize:22}}>›</span>
               </button>
@@ -1426,9 +1426,98 @@ function ScreenGrafico({cycles,onBack}) {
           </div>
         )}
 
-        {/* Measurements list */}
-        {/* Passi chart */}
-        <PassiChart cycles={cycles}/>
+        {/* Passi chart — temporal, same x-axis as weight */}
+        {(()=>{
+          // Build passi points aligned to same time window
+          const passiPoints = [];
+          cycles.forEach(c=>{
+            // Place S1 at start of cycle, S2 at midpoint
+            const start = dateFromStr(c.startDate);
+            if(!start) return;
+            const half = Math.ceil(c.days.length/2);
+            const midDay = c.days[half-1];
+            const midDate = midDay ? dateFromStr(midDay.data) : new Date(start.getTime()+7*24*60*60*1000);
+            if(c.mediaPassiSett1&&parseInt(c.mediaPassiSett1)>0)
+              passiPoints.push({date:start, dateStr:c.startDate, val:parseInt(c.mediaPassiSett1), label:'S1', cycleId:c.id});
+            if(c.mediaPassiSett2&&parseInt(c.mediaPassiSett2)>0&&midDate)
+              passiPoints.push({date:midDate, dateStr:midDay?.data||c.startDate, val:parseInt(c.mediaPassiSett2), label:'S2', cycleId:c.id});
+          });
+          // Filter to same window
+          const pp = passiPoints.filter(p=>p.date>=windowStart&&p.date<=windowEnd);
+          if(pp.length===0) return null;
+
+          const maxP2 = Math.max(...pp.map(p=>p.val));
+          const minP2 = Math.min(...pp.map(p=>p.val));
+          const rng = maxP2-minP2||1000;
+          const PH = 80, PPT=8, PPB=18;
+          const cH2 = PH-PPT-PPB;
+          // Use same x-axis logic as weight chart
+          const allDates = [...points.map(p=>p.date), ...pp.map(p=>p.date)].sort((a,b)=>a-b);
+          const tMin = windowStart.getTime(), tMax = windowEnd.getTime(), tRng = tMax-tMin||1;
+          const toXt = d => PL + ((d.getTime()-tMin)/tRng)*cW;
+          const toYp = v => PPT + cH2 - ((v-minP2)/rng)*cH2;
+
+          return (
+            <Card style={{padding:'14px 14px',marginBottom:14}}>
+              <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10}}>
+                <div style={{fontSize:13,fontWeight:800,color:G.text}}>🚶 Passi medi per settimana</div>
+                <div style={{display:'flex',gap:10}}>
+                  <div style={{display:'flex',alignItems:'center',gap:4}}>
+                    <div style={{width:8,height:8,borderRadius:2,background:G.orange}}/>
+                    <span style={{fontSize:10,color:G.text3,fontWeight:600}}>S.1</span>
+                  </div>
+                  <div style={{display:'flex',alignItems:'center',gap:4}}>
+                    <div style={{width:8,height:8,borderRadius:2,background:'#8D6E63'}}/>
+                    <span style={{fontSize:10,color:G.text3,fontWeight:600}}>S.2</span>
+                  </div>
+                </div>
+              </div>
+              <svg width="100%" viewBox={`0 0 ${W} ${PH}`} style={{overflow:'visible'}}>
+                <defs>
+                  <linearGradient id="pgOrange" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor={G.orange} stopOpacity="0.3"/>
+                    <stop offset="100%" stopColor={G.orange} stopOpacity="0.02"/>
+                  </linearGradient>
+                </defs>
+                {/* Y grid lines */}
+                {[minP2, Math.round((minP2+maxP2)/2), maxP2].map((v,i)=>(
+                  <g key={i}>
+                    <line x1={PL} y1={toYp(v)} x2={W-PR} y2={toYp(v)} stroke={G.border} strokeWidth="1" strokeDasharray="2,3"/>
+                    <text x={PL-4} y={toYp(v)+3} textAnchor="end" fontSize="7" fill={G.text3}>
+                      {v>=1000?(v/1000).toFixed(0)+'k':v}
+                    </text>
+                  </g>
+                ))}
+                {/* Connect S1→S2 within same cycle */}
+                {cycles.filter(c=>c.mediaPassiSett1&&c.mediaPassiSett2).map(c=>{
+                  const p1 = pp.find(p=>p.cycleId===c.id&&p.label==='S1');
+                  const p2 = pp.find(p=>p.cycleId===c.id&&p.label==='S2');
+                  if(!p1||!p2) return null;
+                  return <line key={c.id}
+                    x1={toXt(p1.date)} y1={toYp(p1.val)}
+                    x2={toXt(p2.date)} y2={toYp(p2.val)}
+                    stroke="#C8A882" strokeWidth="1.5" strokeDasharray="3,2" opacity="0.6"/>;
+                })}
+                {/* Dots */}
+                {pp.map((p,i)=>{
+                  const x=toXt(p.date), y=toYp(p.val);
+                  const col = p.label==='S1'?G.orange:'#8D6E63';
+                  return <g key={i}>
+                    <circle cx={x} cy={y} r="5" fill="#fff" stroke={col} strokeWidth="2"/>
+                    <circle cx={x} cy={y} r="2.5" fill={col}/>
+                    <text x={x} y={PH-2} textAnchor="middle" fontSize="7" fill={G.text3}>
+                      {p.dateStr.slice(0,5)}
+                    </text>
+                    {/* Value label above dot */}
+                    <text x={x} y={y-8} textAnchor="middle" fontSize="7.5" fill={col} fontWeight="700">
+                      {p.val>=1000?(p.val/1000).toFixed(1)+'k':p.val}
+                    </text>
+                  </g>;
+                })}
+              </svg>
+            </Card>
+          );
+        })()}
 
         <SectionLabel>Misurazioni ({points.length})</SectionLabel>
         {points.length===0&&(
@@ -1570,6 +1659,30 @@ function App() {
   const handleOpenDay=idx=>{setActiveDayIdx(idx);setScreen("day");};
   const handleSaveDay=d=>{
     setCycles(p=>p.map((c,i)=>i===p.length-1?{...c,days:c.days.map((dd,di)=>di===activeDayIdx?{...dd,...d}:dd)}:c));
+    // Auto-close cycle if today is the visita day
+    const visita = profile?.visitaNutrizionista;
+    const savedDate = cycles.length>0 ? cycles[cycles.length-1].days[activeDayIdx]?.data : null;
+    if(visita && savedDate && savedDate === visita) {
+      // Trigger chiudi ciclo after state update
+      setTimeout(()=>{
+        setCycles(prev=>{
+          const last = prev[prev.length-1];
+          if(!last||last.exported) return prev;
+          // Trim days up to and including visita date
+          const visitaDate = dateFromStr(visita);
+          const trimmed = last.days.filter(dd=>{
+            const dt=dateFromStr(dd.data); return dt&&dt<=visitaDate;
+          });
+          const closed = {...last, days:trimmed, exported:true, completed:true};
+          const updated = [...prev.slice(0,-1), closed];
+          const half = Math.floor(trimmed.length/2);
+          const mediaPesoPrec = avg(trimmed.slice(half))??avg(trimmed)??"";
+          const v = dateFromStr(visita);
+          const newStart = new Date(v); newStart.setDate(v.getDate()+1);
+          return [...updated, makeNewCycle(newStart, mediaPesoPrec, updated.length)];
+        });
+      }, 100);
+    }
     setScreen("dashboard");
   };
   const handleSaveFeedback=(fb,steps)=>{
