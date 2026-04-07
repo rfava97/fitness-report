@@ -263,8 +263,57 @@ function ScreenProfilo({profile,onSave,onBack}) {
             </div>
           )}
         </Card>
+        {/* ── ESPORTA DATI ── */}
+        <div style={{fontSize:12,fontWeight:700,color:"#8E8E93",letterSpacing:1,textTransform:"uppercase",marginBottom:8,marginTop:4}}>Trasferimento dati</div>
+        <ExportBlock/>
+
         <Btn onClick={()=>onSave({...profile,visitaNutrizionista:visita})} disabled={!visitaOk}>Salva →</Btn>
       </div>
+    </div>
+  );
+}
+
+function ExportBlock() {
+  const [json, setJson] = useState(null);
+  const [copied, setCopied] = useState(false);
+
+  const handleExport = () => {
+    try {
+      const raw = localStorage.getItem("fitness_report_v1");
+      if (!raw) { alert("Nessun dato trovato nel localStorage."); return; }
+      setJson(raw);
+      setCopied(false);
+      navigator.clipboard.writeText(raw)
+        .then(() => setCopied(true))
+        .catch(() => setCopied(false));
+    } catch(e) { alert("Errore: " + e.message); }
+  };
+
+  return (
+    <div style={{background:"#fff",borderRadius:16,padding:"16px 18px",boxShadow:"0 1px 4px rgba(0,0,0,0.07)",marginBottom:12}}>
+      <div style={{fontSize:14,fontWeight:600,color:"#1C1C1E",marginBottom:4}}>📦 Esporta tutti i dati</div>
+      <div style={{fontSize:12,color:"#8E8E93",marginBottom:10}}>Copia il JSON per importarlo nella nuova versione dell'app</div>
+      <button onClick={handleExport} style={{width:"100%",padding:"12px",borderRadius:12,
+        border:"1.5px solid #007AFF",background:"transparent",color:"#007AFF",
+        fontSize:15,fontWeight:700,cursor:"pointer"}}>
+        {copied ? "✅ Copiato negli appunti!" : "Esporta dati →"}
+      </button>
+      {json && !copied && (
+        <div style={{marginTop:10}}>
+          <div style={{fontSize:12,color:"#FF9500",fontWeight:600,marginBottom:6}}>
+            ⚠️ Copia automatica non riuscita. Seleziona tutto il testo qui sotto (tieni premuto → Seleziona tutto) e copialo.
+          </div>
+          <textarea
+            readOnly
+            value={json}
+            rows={6}
+            onFocus={e => e.target.select()}
+            style={{width:"100%",padding:"10px 12px",border:"1px solid #E5E5EA",borderRadius:10,
+              fontSize:11,fontFamily:"monospace",background:"#F2F2F7",color:"#1C1C1E",
+              outline:"none",resize:"none",lineHeight:1.4,boxSizing:"border-box"}}
+          />
+        </div>
+      )}
     </div>
   );
 }
