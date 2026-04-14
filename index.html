@@ -1645,8 +1645,8 @@ function App() {
         return {...c,days:c.days.filter(d=>{const dt=dateFromStr(d.data);return dt&&dt<=today;}),exported:true,completed:true};
       });
       const last=updated[updated.length-1];
-      const half=Math.floor(last.days.length/2);
-      const mediaPesoPrec=avg(last.days.slice(half))??avg(last.days)??"";
+      // Media = all days with peso inserted
+      const mediaPesoPrec=avg(last.days.filter(d=>d.peso))??avg(last.days)??"";
       const visita=profile?.visitaNutrizionista;
       let newStart=new Date();
       if(visita){const v=dateFromStr(visita);if(v){newStart=new Date(v);newStart.setDate(v.getDate()+1);}}
@@ -1658,31 +1658,41 @@ function App() {
   };
   const handleOpenDay=idx=>{setActiveDayIdx(idx);setScreen("day");};
   const handleSaveDay=d=>{
-    setCycles(p=>p.map((c,i)=>i===p.length-1?{...c,days:c.days.map((dd,di)=>di===activeDayIdx?{...dd,...d}:dd)}:c));
-    // Auto-close cycle if today is the visita day
-    const visita = profile?.visitaNutrizionista;
-    const savedDate = cycles.length>0 ? cycles[cycles.length-1].days[activeDayIdx]?.data : null;
-    if(visita && savedDate && savedDate === visita) {
-      // Trigger chiudi ciclo after state update
-      setTimeout(()=>{
-        setCycles(prev=>{
-          const last = prev[prev.length-1];
-          if(!last||last.exported) return prev;
-          // Trim days up to and including visita date
+    // First update the day data
+    setCycles(prev=>{
+      const updated = prev.map((c,i)=>{
+        if(i!==prev.length-1) return c;
+        const newDays = c.days.map((dd,di)=>di===activeDayIdx?{...dd,...d}:dd);
+        const updatedCycle = {...c, days:newDays};
+
+        // Check if this day is the visita date → auto-close cycle
+        const visita = profile?.visitaNutrizionista;
+        const dayDate = c.days[activeDayIdx]?.data;
+        if(visita && dayDate && dayDate===visita && !c.exported) {
           const visitaDate = dateFromStr(visita);
-          const trimmed = last.days.filter(dd=>{
+          // Keep only days up to and including visita
+          const trimmed = newDays.filter(dd=>{
             const dt=dateFromStr(dd.data); return dt&&dt<=visitaDate;
           });
-          const closed = {...last, days:trimmed, exported:true, completed:true};
-          const updated = [...prev.slice(0,-1), closed];
-          const half = Math.floor(trimmed.length/2);
-          const mediaPesoPrec = avg(trimmed.slice(half))??avg(trimmed)??"";
+          // Media = average of ALL days with peso in this cycle (not just half)
+          const mediaPesoPrec = avg(trimmed.filter(dd=>dd.peso))||avg(trimmed)||"";
           const v = dateFromStr(visita);
           const newStart = new Date(v); newStart.setDate(v.getDate()+1);
-          return [...updated, makeNewCycle(newStart, mediaPesoPrec, updated.length)];
-        });
-      }, 100);
-    }
+          const newCycle = makeNewCycle(newStart, mediaPesoPrec, prev.length);
+          // Return BOTH: closed cycle + new cycle (handled below)
+          return {...updatedCycle, days:trimmed, exported:true, completed:true, _pendingNewCycle:newCycle};
+        }
+        return updatedCycle;
+      });
+
+      // If a new cycle needs to be appended
+      const last = updated[updated.length-1];
+      if(last?._pendingNewCycle) {
+        const {_pendingNewCycle, ...closedCycle} = last;
+        return [...updated.slice(0,-1), closedCycle, _pendingNewCycle];
+      }
+      return updated;
+    });
     setScreen("dashboard");
   };
   const handleSaveFeedback=(fb,steps)=>{
