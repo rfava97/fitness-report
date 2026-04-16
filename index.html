@@ -542,8 +542,11 @@ function ScreenDashboard({profile,cycles,onOpenDay,onOpenFeedback,onNewCycle,onO
   const sett2=cycle?.days.slice(Math.ceil((cycle.days.length)/2))??[];
   const m1=avg(sett1),m2=avg(sett2);
   const pastDays=cycle?cycle.days.filter(d=>{const dt=dateFromStr(d.data),td=dateFromStr(today);return dt&&td&&dt<=td;}):[]; 
-  const allDone=pastDays.length>0&&pastDays.every(d=>d.peso!=="");
+  // Feedback è compilabile solo quando il ciclo è chiuso (exported) ma il feedback non è ancora completo
+  const cycleJustClosed = cycle?.exported && !cycle?.completed;
   const fbDone=cycle&&SEZIONI_FEEDBACK.every(s=>cycle.feedback[s.key].trim()!=="");
+  const showFeedbackCta = cycle?.exported && !fbDone;
+  const allDone=pastDays.length>0&&pastDays.every(d=>d.peso!=="");
   const age=calcAge(profile.dob);
   const visitaDays=profile.visitaNutrizionista?daysUntilVisita(profile.visitaNutrizionista):null;
   const showVisitaBanner=visitaDays!==null&&visitaDays>=0&&visitaDays<=5&&cycle&&!cycle.exported;
@@ -595,8 +598,8 @@ function ScreenDashboard({profile,cycles,onOpenDay,onOpenFeedback,onNewCycle,onO
             {/* Stats pills */}
             <div style={{display:"flex",gap:8,marginBottom:14}}>
               <Pill label="Prec." value={cycle.mediaPesoPrec?`${cycle.mediaPesoPrec}`:null} unit="kg" color={G.text3}/>
-              <Pill label="Media S.1" value={m1?`${m1}`:null} unit="kg" color={G.green}/>
-              <Pill label="Media S.2" value={m2?`${m2}`:null} unit="kg" color={G.gl}/>
+              <Pill label="Media S.1" value={(cycle.mediaS1||m1)?`${cycle.mediaS1||m1}`:null} unit="kg" color={G.green}/>
+              {(cycle.mediaS2||m2)?<Pill label="Media S.2" value={`${cycle.mediaS2||m2}`} unit="kg" color={G.gl}/>:null}
             </div>
 
             {/* Calendar */}
@@ -646,33 +649,33 @@ function ScreenDashboard({profile,cycles,onOpenDay,onOpenFeedback,onNewCycle,onO
               </button>
             )}
 
-            {/* Feedback CTA */}
-            {allDone&&!cycle.exported&&(
+            {/* Feedback CTA — visibile solo quando il ciclo è chiuso */}
+            {showFeedbackCta&&(
               <button onClick={onOpenFeedback} style={{width:"100%",padding:"16px 18px",borderRadius:16,border:"none",marginBottom:12,
-                background:fbDone?`linear-gradient(135deg,#2E7D32,#43A047)`:`linear-gradient(135deg,${G.orange},#E65100)`,
+                background:`linear-gradient(135deg,${G.orange},#E65100)`,
                 color:"#fff",fontSize:15,fontWeight:700,cursor:"pointer",
                 display:"flex",justifyContent:"space-between",alignItems:"center",
                 boxShadow:"0 4px 18px rgba(0,0,0,0.15)"}}>
                 <div style={{textAlign:"left"}}>
-                  <div>{fbDone?"✓ Feedback completato":"📝 Compila il feedback"}</div>
+                  <div>📝 Compila il feedback del ciclo</div>
                   <div style={{fontSize:12,fontWeight:500,opacity:0.85,marginTop:2}}>
-                    {fbDone?"Ora puoi generare il report Excel":"Tutti i giorni passati sono compilati"}
+                    Il ciclo è concluso — compilalo prima di generare il report
                   </div>
                 </div>
                 <span style={{fontSize:22}}>›</span>
               </button>
             )}
 
-            {allDone&&fbDone&&!cycle.exported&&(
+            {cycle?.exported&&fbDone&&(
               <div style={{marginBottom:12}}><Btn variant="success" onClick={onOpenReport}>📊 Genera Report Excel →</Btn></div>
             )}
 
-            {cycle.exported&&(
+            {cycle.exported&&fbDone&&(
               <div style={{background:G.cardGreen,borderRadius:14,padding:"14px 18px",marginBottom:12,
                 display:"flex",alignItems:"center",gap:12,border:`1px solid ${G.green}44`}}>
                 <span style={{fontSize:24}}>✅</span>
                 <div>
-                  <div style={{fontSize:15,fontWeight:800,color:G.text}}>Report ciclo #{cycle.id+1} generato</div>
+                  <div style={{fontSize:15,fontWeight:800,color:G.text}}>Ciclo #{cycle.id+1} completato</div>
                   <div style={{fontSize:13,color:G.text2,marginTop:1}}>Pronto per il prossimo ciclo</div>
                 </div>
               </div>
@@ -829,7 +832,10 @@ function ScreenReport({profile,cycle,onConfirm,onBack}) {
   const today=todayStr();
   const half=Math.ceil(cycle.days.length/2);
   const s1=cycle.days.slice(0,half),s2=cycle.days.slice(half);
-  const m1=avg(s1),m2=avg(s2),mp=parseFloat(cycle.mediaPesoPrec);
+  // Use pre-computed averages if available (cycles closed at visita)
+  const m1 = cycle.mediaS1 ? parseFloat(cycle.mediaS1) : avg(s1);
+  const m2 = cycle.mediaS2 ? parseFloat(cycle.mediaS2) : (s2.length>0?avg(s2):null);
+  const mp=parseFloat(cycle.mediaPesoPrec);
   const d1=m1&&!isNaN(mp)?(mp-m1).toFixed(2):null;
   const d2=m1&&m2?(m1-m2).toFixed(2):null;
   const dc=v=>v===null?G.text3:parseFloat(v)>0?"#2E7D32":parseFloat(v)<0?G.red:G.text3;
@@ -1195,6 +1201,67 @@ function PassiChart({cycles}) {
         </div>
       )}
     </Card>
+  );
+}
+
+// ── Screen: Prossima Visita ────────────────────────────────────────────────────
+function ScreenProssimaVisita({ultimaVisita, onSave}) {
+  const [visita, setVisita] = useState('');
+  const visitaOk = visita.length===10 && !!dateFromStr(visita);
+
+  // Suggest +2 weeks from last visita
+  useEffect(()=>{
+    if(ultimaVisita) {
+      const v = dateFromStr(ultimaVisita);
+      if(v) {
+        const sug = new Date(v); sug.setDate(v.getDate()+14);
+        setVisita(strFromDate(sug));
+      }
+    }
+  },[]);
+
+  return (
+    <div style={{minHeight:'100vh', background:G.bg, display:'flex', flexDirection:'column'}}>
+      <div className="safe-top" style={{background:`linear-gradient(150deg,${G.green},${G.gl})`,
+        paddingLeft:28, paddingRight:28, paddingBottom:36}}>
+        <div style={{fontSize:11,fontWeight:800,color:'rgba(255,255,255,0.6)',letterSpacing:1.5,marginBottom:10,textTransform:'uppercase'}}>
+          Visita completata ✅
+        </div>
+        <div style={{fontSize:26,fontWeight:900,color:'#fff',lineHeight:1.2,letterSpacing:-0.5}}>
+          Quando è la<br/>prossima visita?
+        </div>
+        <div style={{fontSize:13,color:'rgba(255,255,255,0.75)',marginTop:10}}>
+          Il nuovo ciclo parte già da domani.<br/>Inserisci la data per ricevere i promemoria.
+        </div>
+      </div>
+      <div style={{flex:1, padding:'24px 20px 40px'}}>
+        <Card>
+          <div style={{fontSize:14,fontWeight:700,color:G.text,marginBottom:3}}>📅 Data prossima visita</div>
+          <div style={{fontSize:12,color:G.text3,marginBottom:10}}>Puoi modificarla in seguito dal profilo</div>
+          <FInput value={visita} onChange={v=>setVisita(autoFormatDate(v))} placeholder="gg-mm-aaaa"/>
+          {visitaOk && (
+            <div style={{marginTop:10,background:G.cardGreen,borderRadius:10,padding:'10px 12px',
+              border:`1px solid ${G.green}33`}}>
+              <div style={{fontSize:12,color:G.green,fontWeight:700}}>
+                ✓ Nuovo ciclo: {(() => {
+                  const v=dateFromStr(visita); if(!v) return '';
+                  const s=new Date(v); s.setDate(v.getDate()-13);
+                  return strFromDate(s)+' → '+visita;
+                })()}
+              </div>
+            </div>
+          )}
+        </Card>
+        <div style={{marginBottom:12}}/>
+        <Btn onClick={()=>onSave(visita)} disabled={!visitaOk}>Conferma →</Btn>
+        <div style={{height:10}}/>
+        <button onClick={()=>onSave('')} style={{width:'100%',padding:'13px',borderRadius:14,
+          border:`1.5px solid ${G.border}`,background:'transparent',color:G.text3,
+          fontSize:14,fontWeight:600,cursor:'pointer'}}>
+          Salta — inserirò la data dopo
+        </button>
+      </div>
+    </div>
   );
 }
 
@@ -1598,6 +1665,8 @@ function App() {
   const [viewingCycleId,setViewingCycleId]=useState(null);
   const [importedProfile,setImportedProfile]=useState(null);
   const [importedCycles,setImportedCycles]=useState(null);
+  const [showProssimaVisita,setShowProssimaVisita]=useState(false);
+  const [ultimaVisitaChiusa,setUltimaVisitaChiusa]=useState('');
 
   useEffect(()=>{ if(profile)saveState(profile,cycles); },[profile,cycles]);
 
@@ -1678,9 +1747,27 @@ function App() {
           const mediaPesoPrec = avg(trimmed.filter(dd=>dd.peso))||avg(trimmed)||"";
           const v = dateFromStr(visita);
           const newStart = new Date(v); newStart.setDate(v.getDate()+1);
-          const newCycle = makeNewCycle(newStart, mediaPesoPrec, prev.length);
-          // Return BOTH: closed cycle + new cycle (handled below)
-          return {...updatedCycle, days:trimmed, exported:true, completed:true, _pendingNewCycle:newCycle};
+          // S1/S2 averages: if cycle has < 7 days only S1 avg, otherwise split
+          const half7 = Math.ceil(trimmed.length/2);
+          const hasTwoWeeks = trimmed.length >= 7;
+          const s1days = hasTwoWeeks ? trimmed.slice(0, half7) : trimmed;
+          const s2days = hasTwoWeeks ? trimmed.slice(half7) : [];
+          const m1 = avg(s1days.filter(dd=>dd.peso));
+          const m2 = hasTwoWeeks ? avg(s2days.filter(dd=>dd.peso)) : null;
+          // mediaPesoPrec for next cycle = avg of all filled days
+          const mediaPesoPrecNext = avg(trimmed.filter(dd=>dd.peso))||"";
+          const newCycle = makeNewCycle(newStart, mediaPesoPrecNext, prev.length);
+          const closedWithAvg = {
+            ...updatedCycle,
+            days: trimmed,
+            exported: true,
+            completed: false, // not completed until feedback is done
+            mediaS1: m1 ? String(m1) : "",
+            mediaS2: m2 ? String(m2) : "",
+            _pendingNewCycle: newCycle,
+            _visitaChiusa: visita,
+          };
+          return closedWithAvg;
         }
         return updatedCycle;
       });
@@ -1688,7 +1775,12 @@ function App() {
       // If a new cycle needs to be appended
       const last = updated[updated.length-1];
       if(last?._pendingNewCycle) {
-        const {_pendingNewCycle, ...closedCycle} = last;
+        const {_pendingNewCycle, _visitaChiusa, ...closedCycle} = last;
+        // Show prossima visita screen after state settles
+        setTimeout(()=>{
+          setUltimaVisitaChiusa(_visitaChiusa||"");
+          setShowProssimaVisita(true);
+        }, 50);
         return [...updated.slice(0,-1), closedCycle, _pendingNewCycle];
       }
       return updated;
@@ -1696,13 +1788,34 @@ function App() {
     setScreen("dashboard");
   };
   const handleSaveFeedback=(fb,steps)=>{
-    setCycles(p=>p.map((c,i)=>i===p.length-1?{...c,feedback:fb,mediaPassiSett1:steps.s1,mediaPassiSett2:steps.s2}:c));
+    // Find the last exported cycle that needs feedback (not necessarily the very last cycle)
+    setCycles(p=>{
+      // Find last cycle that is exported but feedback not complete
+      let targetIdx = -1;
+      for(let i=p.length-1;i>=0;i--) {
+        if(p[i].exported && !SEZIONI_FEEDBACK.every(s=>p[i].feedback[s.key].trim()!=="")) {
+          targetIdx = i; break;
+        }
+      }
+      if(targetIdx < 0) return p;
+      return p.map((c,i)=>i===targetIdx?{...c,feedback:fb,mediaPassiSett1:steps.s1,mediaPassiSett2:steps.s2,completed:true}:c);
+    });
     setScreen("dashboard");
   };
+  const handleProssimaVisita=(nuovaVisita)=>{
+    if(nuovaVisita) {
+      setProfile(p=>({...p, visitaNutrizionista:nuovaVisita}));
+    }
+    setShowProssimaVisita(false);
+  };
+
   const handleConfirmExport=()=>{
     setCycles(p=>p.map((c,i)=>i===p.length-1?{...c,exported:true,completed:true}:c));
     setScreen("dashboard");
   };
+
+  if(showProssimaVisita)
+    return <ScreenProssimaVisita ultimaVisita={ultimaVisitaChiusa} onSave={handleProssimaVisita}/>;
 
   if(!profile&&screen!=="import"&&screen!=="setup_completion")
     return <ScreenSetup onDone={handleSetup} onImport={()=>setScreen("import")}/>;
