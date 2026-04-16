@@ -1,0 +1,910 @@
+[
+  {
+    "id": "riposo",
+    "label": "Giornata di Riposo",
+    "meals": [
+      {
+        "id": "colazione",
+        "label": "Colazione",
+        "fixedKcal": 0,
+        "groups": [
+          {
+            "label": "Fonte proteica",
+            "options": [
+              {
+                "label": "200 gr YOGURT GRECO 0%",
+                "note": ""
+              },
+              {
+                "label": "200 gr ALBUME",
+                "note": ""
+              },
+              {
+                "label": "20 gr BUDINO PROTEICO MILKPRO",
+                "note": "diminuisci carboidrati di 20 gr (es pane da 80 a 50 gr)"
+              },
+              {
+                "label": "250 ml LATTE + 20 gr WHEY ISOLATE",
+                "note": ""
+              }
+            ]
+          },
+          {
+            "label": "Fonte di carboidrati",
+            "options": [
+              {
+                "label": "30 gr FIOCCHI DI MAIS",
+                "note": "senza zuccheri aggiunti"
+              },
+              {
+                "label": "30 gr FARINA DI RISO",
+                "note": "es per pancake con albume, va bene anche aromatizzata"
+              },
+              {
+                "label": "50 gr PANE",
+                "note": "anche con un velo di marmellata"
+              },
+              {
+                "label": "30 gr FETTE BISCOTTATE O GALLETTE",
+                "note": "anche con un velo di marmellata"
+              }
+            ]
+          },
+          {
+            "label": "Grassi",
+            "options": [
+              {
+                "label": "10 gr FRUTTA SECCA / BURRO DI FRUTTA SECCA",
+                "note": ""
+              },
+              {
+                "label": "10 gr CIOCCOLATA FONDENTE >85%",
+                "note": ""
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "spuntino",
+        "label": "Spuntino",
+        "fixedKcal": 0,
+        "groups": [
+          {
+            "label": "Frutta",
+            "options": [
+              {
+                "label": "150 gr FRUTTA DI STAGIONE",
+                "note": ""
+              }
+            ]
+          },
+          {
+            "label": "Grassi",
+            "options": [
+              {
+                "label": "10 gr FRUTTA SECCA / BURRO DI FRUTTA SECCA",
+                "note": ""
+              },
+              {
+                "label": "10 gr CIOCCOLATA FONDENTE >85%",
+                "note": ""
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "pranzo",
+        "label": "Pranzo",
+        "fixedKcal": 80,
+        "groups": [
+          {
+            "label": "Fonte di carboidrati",
+            "options": [
+              {
+                "label": "70 gr CEREALI",
+                "note": "pasta, riso, cous cous, farro, quinoa ecc."
+              },
+              {
+                "label": "280 gr PATATE LESSE",
+                "note": "pesale da crude e sbucciate"
+              },
+              {
+                "label": "100 gr PANE",
+                "note": "anche integrale"
+              },
+              {
+                "label": "175 gr GNOCCHI DI PATATE",
+                "note": ""
+              },
+              {
+                "label": "150 gr LEGUMI COTTI + 60 gr PANE",
+                "note": "circa 40-50 gr secchi; diminuisci fonte proteica di 50 gr"
+              }
+            ]
+          },
+          {
+            "label": "Fonte proteica",
+            "options": [
+              {
+                "label": "150 gr CARNE MAGRA",
+                "note": ""
+              },
+              {
+                "label": "180 gr UOVA + 100 gr ALBUME",
+                "note": "usa 2 cucchiai di olio in meno"
+              },
+              {
+                "label": "200 gr PESCE MAGRO",
+                "note": ""
+              },
+              {
+                "label": "150 gr PESCE SEMIGRASSO",
+                "note": ""
+              },
+              {
+                "label": "150 gr PESCE GRASSO",
+                "note": "usa 1 cucchiaio di olio in meno"
+              },
+              {
+                "label": "200 gr FIOCCHI DI LATTE + 75 gr CARNE MAGRA",
+                "note": "usa 1 cucchiaio di olio in meno"
+              },
+              {
+                "label": "200 gr FIOCCHI DI LATTE + 125 gr PESCE MAGRO",
+                "note": "usa 1 cucchiaio di olio in meno"
+              },
+              {
+                "label": "180 gr TOFU",
+                "note": "usa 1 cucchiaio di olio in meno"
+              },
+              {
+                "label": "150 gr TEMPEH",
+                "note": "usa 1 cucchiaio di olio in meno"
+              },
+              {
+                "label": "200 gr MOZZARELLA PROTEIN",
+                "note": "usa 1 cucchiaio di olio in meno"
+              },
+              {
+                "label": "100 gr SALMONE AFFUMICATO + 100 gr PHILADELPHIA PROTEIN",
+                "note": "usa 1 cucchiaio di olio in meno"
+              }
+            ]
+          },
+          {
+            "label": "Condimento (incluso nel totale)",
+            "options": [
+              {
+                "label": "20 gr OLIO EVO + verdura libera",
+                "note": "2 cucchiai olio + 2 pizzichi sale"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "merenda",
+        "label": "Merenda",
+        "fixedKcal": 0,
+        "groups": [
+          {
+            "label": "Frutta",
+            "options": [
+              {
+                "label": "150 gr FRUTTA",
+                "note": ""
+              }
+            ]
+          },
+          {
+            "label": "Grassi",
+            "options": [
+              {
+                "label": "10 gr FRUTTA SECCA",
+                "note": ""
+              },
+              {
+                "label": "10 gr CIOCCOLATA FONDENTE >85%",
+                "note": ""
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "cena",
+        "label": "Cena",
+        "fixedKcal": 80,
+        "groups": [
+          {
+            "label": "Fonte di carboidrati",
+            "options": [
+              {
+                "label": "70 gr CEREALI",
+                "note": "pasta, riso, cous cous, farro, quinoa ecc."
+              },
+              {
+                "label": "280 gr PATATE LESSE",
+                "note": "pesale da crude e sbucciate"
+              },
+              {
+                "label": "100 gr PANE",
+                "note": "anche integrale"
+              },
+              {
+                "label": "175 gr GNOCCHI DI PATATE",
+                "note": ""
+              },
+              {
+                "label": "150 gr LEGUMI COTTI + 60 gr PANE",
+                "note": "circa 40-50 gr secchi; diminuisci fonte proteica di 50 gr"
+              }
+            ]
+          },
+          {
+            "label": "Fonte proteica",
+            "options": [
+              {
+                "label": "150 gr CARNE MAGRA",
+                "note": ""
+              },
+              {
+                "label": "180 gr UOVA + 100 gr ALBUME",
+                "note": "usa 2 cucchiai di olio in meno"
+              },
+              {
+                "label": "200 gr PESCE MAGRO",
+                "note": ""
+              },
+              {
+                "label": "150 gr PESCE SEMIGRASSO",
+                "note": ""
+              },
+              {
+                "label": "150 gr PESCE GRASSO",
+                "note": "usa 1 cucchiaio di olio in meno"
+              },
+              {
+                "label": "200 gr FIOCCHI DI LATTE + 75 gr CARNE MAGRA",
+                "note": "usa 1 cucchiaio di olio in meno"
+              },
+              {
+                "label": "200 gr FIOCCHI DI LATTE + 125 gr PESCE MAGRO",
+                "note": "usa 1 cucchiaio di olio in meno"
+              },
+              {
+                "label": "180 gr TOFU",
+                "note": "usa 1 cucchiaio di olio in meno"
+              },
+              {
+                "label": "150 gr TEMPEH",
+                "note": "usa 1 cucchiaio di olio in meno"
+              },
+              {
+                "label": "200 gr MOZZARELLA PROTEIN",
+                "note": "usa 1 cucchiaio di olio in meno"
+              },
+              {
+                "label": "100 gr SALMONE AFFUMICATO + 100 gr PHILADELPHIA PROTEIN",
+                "note": "usa 1 cucchiaio di olio in meno"
+              }
+            ]
+          },
+          {
+            "label": "Condimento (incluso nel totale)",
+            "options": [
+              {
+                "label": "20 gr OLIO EVO + verdura libera",
+                "note": "2 cucchiai olio + 2 pizzichi sale"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "palestra_mattina",
+    "label": "Palestra Mattina",
+    "meals": [
+      {
+        "id": "pre_allenamento",
+        "label": "Pre-Allenamento (appena sveglio)",
+        "fixedKcal": 10,
+        "groups": [
+          {
+            "label": "Caffè + grassi",
+            "options": [
+              {
+                "label": "10 gr OLIO DI COCCO nel caffè",
+                "note": "doppio espresso tiepido/freddo + 1 pizzico di sale"
+              }
+            ]
+          },
+          {
+            "label": "Carboidrati pre",
+            "options": [
+              {
+                "label": "30 gr FETTE BISCOTTATE / GALLETTE + miele o marmellata",
+                "note": "un velo"
+              }
+            ]
+          },
+          {
+            "label": "Bottiglia durante allenamento",
+            "options": [
+              {
+                "label": "50 gr MALTODESTRINE + 10 gr EAA + 3 gr CREATINA",
+                "note": "in 1,5L acqua con 2 pizzichi di sale; consumane 2-3 sorsi prima"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "colazione_palestra",
+        "label": "Colazione in Palestra (post workout)",
+        "fixedKcal": 0,
+        "groups": [
+          {
+            "label": "Fonte proteica",
+            "options": [
+              {
+                "label": "25 gr WHEY PROTEIN ISOLATE",
+                "note": ""
+              },
+              {
+                "label": "200 gr ALBUME",
+                "note": "es pancake con farina d'avena"
+              },
+              {
+                "label": "20 gr BUDINO PROTEICO MILKPRO",
+                "note": "diminuisci carboidrati di 20 gr (es pane da 110 a 90 gr)"
+              }
+            ]
+          },
+          {
+            "label": "Fonte di carboidrati",
+            "options": [
+              {
+                "label": "60 gr FARINA DI RISO / AVENA",
+                "note": "es per pancake con albume, aromatizzata è più buona"
+              },
+              {
+                "label": "90 gr PANE NON INTEGRALE",
+                "note": "anche con un velo di marmellata"
+              },
+              {
+                "label": "60 gr FETTE BISCOTTATE O GALLETTE NON INTEGRALI",
+                "note": "anche con un velo di marmellata"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "spuntino",
+        "label": "Spuntino",
+        "fixedKcal": 0,
+        "groups": [
+          {
+            "label": "Frutta",
+            "options": [
+              {
+                "label": "150 gr FRUTTA DI STAGIONE",
+                "note": ""
+              }
+            ]
+          },
+          {
+            "label": "Grassi",
+            "options": [
+              {
+                "label": "10 gr FRUTTA SECCA / BURRO DI FRUTTA SECCA",
+                "note": ""
+              },
+              {
+                "label": "10 gr CIOCCOLATA FONDENTE >85%",
+                "note": ""
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "pranzo",
+        "label": "Pranzo",
+        "fixedKcal": 80,
+        "groups": [
+          {
+            "label": "Fonte di carboidrati",
+            "options": [
+              {
+                "label": "70 gr CEREALI",
+                "note": ""
+              },
+              {
+                "label": "280 gr PATATE LESSE",
+                "note": "pesale da crude e sbucciate"
+              },
+              {
+                "label": "100 gr PANE",
+                "note": "anche integrale"
+              },
+              {
+                "label": "175 gr GNOCCHI DI PATATE",
+                "note": ""
+              },
+              {
+                "label": "150 gr LEGUMI COTTI + 60 gr PANE",
+                "note": "diminuisci fonte proteica di 50 gr"
+              }
+            ]
+          },
+          {
+            "label": "Fonte proteica",
+            "options": [
+              {
+                "label": "150 gr CARNE MAGRA",
+                "note": ""
+              },
+              {
+                "label": "180 gr UOVA + 100 gr ALBUME",
+                "note": "usa 2 cucchiai di olio in meno"
+              },
+              {
+                "label": "200 gr PESCE MAGRO",
+                "note": ""
+              },
+              {
+                "label": "150 gr PESCE SEMIGRASSO",
+                "note": ""
+              },
+              {
+                "label": "150 gr PESCE GRASSO",
+                "note": "usa 1 cucchiaio di olio in meno"
+              },
+              {
+                "label": "200 gr FIOCCHI DI LATTE + 75 gr CARNE MAGRA",
+                "note": "usa 1 cucchiaio di olio in meno"
+              },
+              {
+                "label": "180 gr TOFU",
+                "note": "usa 1 cucchiaio di olio in meno"
+              },
+              {
+                "label": "150 gr TEMPEH",
+                "note": "usa 1 cucchiaio di olio in meno"
+              },
+              {
+                "label": "200 gr MOZZARELLA PROTEIN",
+                "note": "usa 1 cucchiaio di olio in meno"
+              },
+              {
+                "label": "100 gr SALMONE AFFUMICATO + 100 gr PHILADELPHIA PROTEIN",
+                "note": "usa 1 cucchiaio di olio in meno"
+              }
+            ]
+          },
+          {
+            "label": "Condimento",
+            "options": [
+              {
+                "label": "20 gr OLIO EVO + verdura libera",
+                "note": ""
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "merenda",
+        "label": "Merenda",
+        "fixedKcal": 0,
+        "groups": [
+          {
+            "label": "Frutta",
+            "options": [
+              {
+                "label": "150 gr FRUTTA",
+                "note": ""
+              }
+            ]
+          },
+          {
+            "label": "Grassi",
+            "options": [
+              {
+                "label": "10 gr FRUTTA SECCA",
+                "note": ""
+              },
+              {
+                "label": "10 gr CIOCCOLATA FONDENTE >85%",
+                "note": ""
+              }
+            ]
+          },
+          {
+            "label": "Extra carboidrati merenda",
+            "options": [
+              {
+                "label": "50 gr PANE",
+                "note": "es con un velo di marmellata"
+              },
+              {
+                "label": "30 gr GALLETTE / FETTE BISCOTTATE",
+                "note": ""
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "cena",
+        "label": "Cena",
+        "fixedKcal": 80,
+        "groups": [
+          {
+            "label": "Fonte di carboidrati",
+            "options": [
+              {
+                "label": "50 gr CEREALI",
+                "note": ""
+              },
+              {
+                "label": "200 gr PATATE LESSE",
+                "note": "pesale da crude e sbucciate"
+              },
+              {
+                "label": "80 gr PANE",
+                "note": "anche integrale"
+              },
+              {
+                "label": "125 gr GNOCCHI DI PATATE",
+                "note": ""
+              },
+              {
+                "label": "150 gr LEGUMI COTTI + 40 gr PANE",
+                "note": "diminuisci fonte proteica di 50 gr"
+              }
+            ]
+          },
+          {
+            "label": "Fonte proteica",
+            "options": [
+              {
+                "label": "150 gr CARNE MAGRA",
+                "note": ""
+              },
+              {
+                "label": "180 gr UOVA + 100 gr ALBUME",
+                "note": "usa 2 cucchiai di olio in meno"
+              },
+              {
+                "label": "200 gr PESCE MAGRO",
+                "note": ""
+              },
+              {
+                "label": "150 gr PESCE SEMIGRASSO",
+                "note": ""
+              },
+              {
+                "label": "150 gr PESCE GRASSO",
+                "note": "usa 1 cucchiaio di olio in meno"
+              },
+              {
+                "label": "200 gr FIOCCHI DI LATTE + 75 gr CARNE MAGRA",
+                "note": "usa 1 cucchiaio di olio in meno"
+              },
+              {
+                "label": "180 gr TOFU",
+                "note": "usa 1 cucchiaio di olio in meno"
+              },
+              {
+                "label": "150 gr TEMPEH",
+                "note": "usa 1 cucchiaio di olio in meno"
+              },
+              {
+                "label": "200 gr MOZZARELLA PROTEIN",
+                "note": "usa 1 cucchiaio di olio in meno"
+              },
+              {
+                "label": "100 gr SALMONE AFFUMICATO + 100 gr PHILADELPHIA PROTEIN",
+                "note": "usa 1 cucchiaio di olio in meno"
+              }
+            ]
+          },
+          {
+            "label": "Condimento",
+            "options": [
+              {
+                "label": "20 gr OLIO EVO + verdura libera",
+                "note": ""
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "palestra_meta_mattina",
+    "label": "Palestra Metà Mattina",
+    "meals": [
+      {
+        "id": "colazione",
+        "label": "Colazione (2-2:30h prima del workout)",
+        "fixedKcal": 0,
+        "groups": [
+          {
+            "label": "Fonte proteica",
+            "options": [
+              {
+                "label": "200 gr YOGURT GRECO 0%",
+                "note": ""
+              },
+              {
+                "label": "200 gr ALBUME",
+                "note": ""
+              },
+              {
+                "label": "20 gr BUDINO PROTEICO MILKPRO",
+                "note": "diminuisci carboidrati di 20 gr (es pane da 120 a 100 gr)"
+              },
+              {
+                "label": "250 ml LATTE + 20 gr WHEY ISOLATE",
+                "note": ""
+              }
+            ]
+          },
+          {
+            "label": "Fonte di carboidrati",
+            "options": [
+              {
+                "label": "70 gr FIOCCHI DI MAIS",
+                "note": "senza zuccheri aggiunti"
+              },
+              {
+                "label": "70 gr FARINA DI RISO",
+                "note": "es per pancake con albume"
+              },
+              {
+                "label": "40 gr ORO SAIWA O PLASMON + 30 gr FIOCCHI DI MAIS",
+                "note": "oppure 50 gr pane non integrale"
+              },
+              {
+                "label": "100 gr PANE NON INTEGRALE",
+                "note": "anche con un velo di marmellata"
+              },
+              {
+                "label": "70 gr FETTE BISCOTTATE O GALLETTE NON INTEGRALI",
+                "note": "anche con un velo di marmellata"
+              }
+            ]
+          },
+          {
+            "label": "Bottiglia durante allenamento",
+            "options": [
+              {
+                "label": "50 gr MALTODESTRINE + 10 gr EAA + 3 gr CREATINA",
+                "note": "in 1,5L acqua con 2 pizzichi di sale"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "post_palestra",
+        "label": "Post Palestra",
+        "fixedKcal": 80,
+        "groups": [
+          {
+            "label": "Fonte di carboidrati",
+            "options": [
+              {
+                "label": "90 gr CEREALI",
+                "note": ""
+              },
+              {
+                "label": "360 gr PATATE LESSE",
+                "note": "pesale da crude e sbucciate"
+              },
+              {
+                "label": "120 gr PANE",
+                "note": ""
+              },
+              {
+                "label": "225 gr GNOCCHI DI PATATE",
+                "note": ""
+              }
+            ]
+          },
+          {
+            "label": "Fonte proteica",
+            "options": [
+              {
+                "label": "150 gr CARNE MAGRA",
+                "note": ""
+              },
+              {
+                "label": "180 gr UOVA + 100 gr ALBUME",
+                "note": "usa 2 cucchiai di olio in meno"
+              },
+              {
+                "label": "200 gr PESCE MAGRO",
+                "note": ""
+              },
+              {
+                "label": "150 gr PESCE SEMIGRASSO",
+                "note": ""
+              },
+              {
+                "label": "150 gr PESCE GRASSO",
+                "note": "usa 1 cucchiaio di olio in meno"
+              },
+              {
+                "label": "200 gr FIOCCHI DI LATTE + 75 gr CARNE MAGRA",
+                "note": "usa 1 cucchiaio di olio in meno"
+              },
+              {
+                "label": "180 gr TOFU",
+                "note": "usa 1 cucchiaio di olio in meno"
+              },
+              {
+                "label": "150 gr TEMPEH",
+                "note": "usa 1 cucchiaio di olio in meno"
+              },
+              {
+                "label": "200 gr MOZZARELLA PROTEIN",
+                "note": "usa 1 cucchiaio di olio in meno"
+              },
+              {
+                "label": "100 gr SALMONE AFFUMICATO + 100 gr PHILADELPHIA PROTEIN",
+                "note": "usa 1 cucchiaio di olio in meno"
+              }
+            ]
+          },
+          {
+            "label": "Condimento",
+            "options": [
+              {
+                "label": "20 gr OLIO EVO + verdura libera",
+                "note": ""
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "merenda",
+        "label": "Merenda",
+        "fixedKcal": 0,
+        "groups": [
+          {
+            "label": "Frutta",
+            "options": [
+              {
+                "label": "150 gr FRUTTA",
+                "note": ""
+              }
+            ]
+          },
+          {
+            "label": "Grassi",
+            "options": [
+              {
+                "label": "10 gr FRUTTA SECCA",
+                "note": ""
+              },
+              {
+                "label": "10 gr CIOCCOLATA FONDENTE >85%",
+                "note": ""
+              }
+            ]
+          },
+          {
+            "label": "Extra carboidrati merenda",
+            "options": [
+              {
+                "label": "50 gr PANE",
+                "note": "es con un velo di marmellata"
+              },
+              {
+                "label": "30 gr GALLETTE / FETTE BISCOTTATE",
+                "note": ""
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "cena",
+        "label": "Cena",
+        "fixedKcal": 80,
+        "groups": [
+          {
+            "label": "Fonte di carboidrati",
+            "options": [
+              {
+                "label": "50 gr CEREALI",
+                "note": ""
+              },
+              {
+                "label": "200 gr PATATE LESSE",
+                "note": "pesale da crude e sbucciate"
+              },
+              {
+                "label": "80 gr PANE",
+                "note": "anche integrale"
+              },
+              {
+                "label": "125 gr GNOCCHI DI PATATE",
+                "note": ""
+              },
+              {
+                "label": "150 gr LEGUMI COTTI + 40 gr PANE",
+                "note": "diminuisci fonte proteica di 50 gr"
+              }
+            ]
+          },
+          {
+            "label": "Fonte proteica",
+            "options": [
+              {
+                "label": "150 gr CARNE MAGRA",
+                "note": ""
+              },
+              {
+                "label": "180 gr UOVA + 100 gr ALBUME",
+                "note": "usa 2 cucchiai di olio in meno"
+              },
+              {
+                "label": "200 gr PESCE MAGRO",
+                "note": ""
+              },
+              {
+                "label": "150 gr PESCE SEMIGRASSO",
+                "note": ""
+              },
+              {
+                "label": "150 gr PESCE GRASSO",
+                "note": "usa 1 cucchiaio di olio in meno"
+              },
+              {
+                "label": "200 gr FIOCCHI DI LATTE + 75 gr CARNE MAGRA",
+                "note": "usa 1 cucchiaio di olio in meno"
+              },
+              {
+                "label": "180 gr TOFU",
+                "note": "usa 1 cucchiaio di olio in meno"
+              },
+              {
+                "label": "150 gr TEMPEH",
+                "note": "usa 1 cucchiaio di olio in meno"
+              },
+              {
+                "label": "200 gr MOZZARELLA PROTEIN",
+                "note": "usa 1 cucchiaio di olio in meno"
+              },
+              {
+                "label": "100 gr SALMONE AFFUMICATO + 100 gr PHILADELPHIA PROTEIN",
+                "note": "usa 1 cucchiaio di olio in meno"
+              }
+            ]
+          },
+          {
+            "label": "Condimento",
+            "options": [
+              {
+                "label": "20 gr OLIO EVO + verdura libera",
+                "note": ""
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+]
