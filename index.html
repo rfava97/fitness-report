@@ -560,6 +560,18 @@ function ScreenDashboard({profile,cycles,onOpenDay,onOpenFeedback,onNewCycle,onO
   const dc=g=>g==="ok"?G.ok:g==="cheat"?G.cheat:G.free;
   const todayDay = cycle&&todayIdx>=0?cycle.days[todayIdx]:null;
 
+  // Auto-close cycle if today is past the last day of the current cycle
+  useEffect(()=>{
+    if(!cycle || cycle.exported) return;
+    const lastDay = cycle.days[cycle.days.length-1];
+    if(!lastDay) return;
+    const lastDate = dateFromStr(lastDay.data);
+    const todayDate = dateFromStr(today);
+    if(lastDate && todayDate && todayDate > lastDate) {
+      onChiudiCiclo();
+    }
+  },[today, cycle?.id, cycle?.exported]);
+
   return (
     <div style={{minHeight:"100vh",background:G.bg,paddingBottom:40}}>
       {/* Hero */}
@@ -2092,25 +2104,42 @@ function App() {
     // Block if there's a closed cycle with pending report
     const hasPending = cycles.some(c=>c.exported && !c.completed);
     if(hasPending) return;
-    const prev=cycles.length>0?cycles[cycles.length-1]:null;
-    const mediaPesoPrec=prev?(avg(prev.days.slice(Math.ceil(prev.days.length/2)))??avg(prev.days)??""):(profile?.mediaPesoPrecIniziale||"");
-    const startDate=cycles.length===0?new Date():(profile?.visitaNutrizionista?getCycleStart(profile.visitaNutrizionista):new Date());
+    // mediaPesoPrec = avg of all filled days of last completed cycle
+    const lastCompleted = cycles.slice().reverse().find(c=>c.completed);
+    const mediaPesoPrec = lastCompleted
+      ? (avg(lastCompleted.days.filter(d=>d.peso)) ?? "")
+      : (profile?.mediaPesoPrecIniziale || "");
+    // Start date: day after last day of last completed cycle, or visita anchor
+    let startDate = new Date();
+    if(lastCompleted) {
+      const lastDay = lastCompleted.days[lastCompleted.days.length-1];
+      if(lastDay) { const d=dateFromStr(lastDay.data); if(d){ startDate=new Date(d); startDate.setDate(d.getDate()+1); }}
+    } else if(profile?.visitaNutrizionista) {
+      startDate = getCycleStart(profile.visitaNutrizionista);
+    }
     setCycles(p=>[...p,makeNewCycle(startDate,mediaPesoPrec,p.length)]);
   };
   const handleChiudiCiclo=()=>{
     const today=new Date();today.setHours(0,0,0,0);
     setCycles(prev=>{
-      const updated=prev.map((c,i)=>{
-        if(i!==prev.length-1)return c;
-        return {...c,days:c.days.filter(d=>{const dt=dateFromStr(d.data);return dt&&dt<=today;}),exported:true,completed:true};
+      // Only close — do NOT create new cycle yet (user must generate report first)
+      return prev.map((c,i)=>{
+        if(i!==prev.length-1) return c;
+        const trimmed = c.days.filter(d=>{const dt=dateFromStr(d.data);return dt&&dt<=today;});
+        // Compute S1/S2 averages
+        const half = Math.ceil(trimmed.length/2);
+        const hasTwoWeeks = trimmed.length >= 7;
+        const m1 = avg(trimmed.slice(0,half).filter(d=>d.peso));
+        const m2 = hasTwoWeeks ? avg(trimmed.slice(half).filter(d=>d.peso)) : null;
+        return {
+          ...c,
+          days: trimmed,
+          exported: true,
+          completed: false, // stays false until feedback+report done
+          mediaS1: m1 ? String(m1) : "",
+          mediaS2: m2 ? String(m2) : "",
+        };
       });
-      const last=updated[updated.length-1];
-      // Media = all days with peso inserted
-      const mediaPesoPrec=avg(last.days.filter(d=>d.peso))??avg(last.days)??"";
-      const visita=profile?.visitaNutrizionista;
-      let newStart=new Date();
-      if(visita){const v=dateFromStr(visita);if(v){newStart=new Date(v);newStart.setDate(v.getDate()+1);}}
-      return [...updated,makeNewCycle(newStart,mediaPesoPrec,updated.length)];
     });
   };
   const handleSavePassi=(s1,s2)=>{
