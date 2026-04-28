@@ -548,10 +548,11 @@ function ScreenDashboard({profile,cycles,onOpenDay,onOpenFeedback,onNewCycle,onO
   const sett2=cycle?.days.slice(Math.ceil((cycle.days.length)/2))??[];
   const m1=avg(sett1),m2=avg(sett2);
   const pastDays=cycle?cycle.days.filter(d=>{const dt=dateFromStr(d.data),td=dateFromStr(today);return dt&&td&&dt<=td;}):[]; 
-  // Feedback è compilabile solo quando il ciclo è chiuso (exported) ma il feedback non è ancora completo
-  const cycleJustClosed = cycle?.exported && !cycle?.completed;
-  const fbDone=cycle&&SEZIONI_FEEDBACK.every(s=>cycle.feedback[s.key].trim()!=="");
-  const showFeedbackCta = cycle?.exported && !fbDone;
+  // Ciclo chiuso in attesa di feedback/report: l'ultimo exported:true e completed:false
+  const closedCycle = cycles.slice().reverse().find(c=>c.exported && !c.completed) || null;
+  const fbDone = closedCycle && SEZIONI_FEEDBACK.every(s=>closedCycle.feedback[s.key].trim()!=="");
+  const showFeedbackCta = !!closedCycle && !fbDone;
+  const showReportCta = !!closedCycle && fbDone;
   const allDone=pastDays.length>0&&pastDays.every(d=>d.peso!=="");
   const age=calcAge(profile.dob);
   const visitaDays=profile.visitaNutrizionista?daysUntilVisita(profile.visitaNutrizionista):null;
@@ -665,7 +666,7 @@ function ScreenDashboard({profile,cycles,onOpenDay,onOpenFeedback,onNewCycle,onO
                 display:"flex",justifyContent:"space-between",alignItems:"center",
                 boxShadow:"0 4px 18px rgba(0,0,0,0.15)"}}>
                 <div style={{textAlign:"left"}}>
-                  <div>📝 Compila il feedback del ciclo</div>
+                  <div>📝 Compila il feedback del ciclo #{(closedCycle?.id||0)+1}</div>
                   <div style={{fontSize:12,fontWeight:500,opacity:0.85,marginTop:2}}>
                     Il ciclo è concluso — compilalo prima di generare il report
                   </div>
@@ -674,16 +675,18 @@ function ScreenDashboard({profile,cycles,onOpenDay,onOpenFeedback,onNewCycle,onO
               </button>
             )}
 
-            {cycle?.exported&&fbDone&&(
-              <div style={{marginBottom:12}}><Btn variant="success" onClick={onOpenReport}>📊 Genera Report Excel →</Btn></div>
+            {showReportCta&&(
+              <div style={{marginBottom:12}}><Btn variant="success" onClick={onOpenReport}>📊 Genera Report Ciclo #{(closedCycle?.id||0)+1} →</Btn></div>
             )}
 
-            {cycle.exported&&fbDone&&(
+            {cycles.some(c=>c.completed)&&!closedCycle&&(
               <div style={{background:G.cardGreen,borderRadius:14,padding:"14px 18px",marginBottom:12,
                 display:"flex",alignItems:"center",gap:12,border:`1px solid ${G.green}44`}}>
                 <span style={{fontSize:24}}>✅</span>
                 <div>
-                  <div style={{fontSize:15,fontWeight:800,color:G.text}}>Ciclo #{cycle.id+1} completato</div>
+                  <div style={{fontSize:15,fontWeight:800,color:G.text}}>
+                    Ciclo #{(cycles.filter(c=>c.completed).slice(-1)[0]?.id||0)+1} completato
+                  </div>
                   <div style={{fontSize:13,color:G.text2,marginTop:1}}>Pronto per il prossimo ciclo</div>
                 </div>
               </div>
@@ -2180,7 +2183,14 @@ function App() {
   };
 
   const handleConfirmExport=()=>{
-    setCycles(p=>p.map((c,i)=>i===p.length-1?{...c,exported:true,completed:true}:c));
+    setCycles(p=>{
+      // Mark the last exported+incomplete cycle as completed
+      let found=false;
+      return p.slice().reverse().map(c=>{
+        if(!found && c.exported && !c.completed){ found=true; return {...c,completed:true}; }
+        return c;
+      }).reverse();
+    });
     setScreen("dashboard");
   };
 
@@ -2198,8 +2208,10 @@ function App() {
     return <ScreenDay cycle={currentCycle} dayIdx={activeDayIdx} onSave={handleSaveDay} onBack={()=>setScreen("dashboard")}/>;
   if(screen==="feedback"&&currentCycle)
     return <ScreenFeedback cycle={currentCycle} onSave={handleSaveFeedback} onBack={()=>setScreen("dashboard")}/>;
-  if(screen==="report"&&currentCycle)
-    return <ScreenReport profile={profile} cycle={currentCycle} onConfirm={handleConfirmExport} onBack={()=>setScreen("dashboard")}/>;
+  // Use the last exported+incomplete cycle for report, fallback to current
+  const reportCycle = cycles.slice().reverse().find(c=>c.exported && !c.completed) || currentCycle;
+  if(screen==="report"&&reportCycle)
+    return <ScreenReport profile={profile} cycle={reportCycle} onConfirm={handleConfirmExport} onBack={()=>setScreen("dashboard")}/>;
   if(screen==="previous"&&viewingCycleId!==null){
     const c=cycles.find(c=>c.id===viewingCycleId);
     if(c)return <ScreenPrevious cycle={c} onBack={()=>setScreen("dashboard")}/>;
