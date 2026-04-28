@@ -872,21 +872,12 @@ function ScreenFeedback({cycle,onSave,onBack}) {
   );
 }
 
-// ── Screen: Report ─────────────────────────────────────────────────────────────
-function ScreenReport({profile,cycle,onConfirm,onBack}) {
-  const [exported,setExported]=useState(false);
-  const [loading,setLoading]=useState(false);
-  const today=todayStr();
-  const half=Math.ceil(cycle.days.length/2);
-  const s1=cycle.days.slice(0,half),s2=cycle.days.slice(half);
-  // Use pre-computed averages if available (cycles closed at visita)
-  const m1 = cycle.mediaS1 ? parseFloat(cycle.mediaS1) : avg(s1);
-  const m2 = cycle.mediaS2 ? parseFloat(cycle.mediaS2) : (s2.length>0?avg(s2):null);
-  const mp=parseFloat(cycle.mediaPesoPrec);
-  const d1=m1&&!isNaN(mp)?(mp-m1).toFixed(2):null;
-  const d2=m1&&m2?(m1-m2).toFixed(2):null;
-  const dc=v=>v===null?G.text3:parseFloat(v)>0?"#2E7D32":parseFloat(v)<0?G.red:G.text3;
-  const age=calcAge(profile.dob);
+// ── ExportButton — reusable Excel export ──────────────────────────────────────
+function ExportButton({profile, cycle, onConfirm, label="📊 Genera Report Excel", small=false}) {
+  const [loading, setLoading] = React.useState(false);
+  const [done, setDone] = React.useState(false);
+  const today = todayStr();
+  const age = calcAge(profile.dob);
 
   const doExport=async()=>{
     setLoading(true);
@@ -979,15 +970,42 @@ Return ONLY the raw base64 string.`;
       console.error('Export error:', e);
       alert('Errore nella generazione: ' + e.message);
     }
-    setLoading(false); setExported(true); onConfirm();
+    setLoading(false); setDone(true); if(onConfirm) onConfirm();
   };
+  if(done) return (
+    <div style={{background:"#E8F5E9",borderRadius:12,padding:"12px 16px",
+      display:"flex",alignItems:"center",gap:10,border:"1px solid #A5D6A7"}}>
+      <span style={{fontSize:20}}>✅</span>
+      <div style={{fontSize:14,fontWeight:700,color:"#2E7D32"}}>Report Excel generato</div>
+    </div>
+  );
+  return <Btn variant="success" onClick={doExport} disabled={loading} small={small}>
+    {loading ? "Generazione in corso…" : label}
+  </Btn>;
+}
+
+// ── Screen: Report ─────────────────────────────────────────────────────────────
+function ScreenReport({profile,cycle,onConfirm,onBack}) {
+  // Export handled by ExportButton component
+  const today=todayStr();
+  const half=Math.ceil(cycle.days.length/2);
+  const s1=cycle.days.slice(0,half),s2=cycle.days.slice(half);
+  // Use pre-computed averages if available (cycles closed at visita)
+  const m1 = cycle.mediaS1 ? parseFloat(cycle.mediaS1) : avg(s1);
+  const m2 = cycle.mediaS2 ? parseFloat(cycle.mediaS2) : (s2.length>0?avg(s2):null);
+  const mp=parseFloat(cycle.mediaPesoPrec);
+  const d1=m1&&!isNaN(mp)?(mp-m1).toFixed(2):null;
+  const d2=m1&&m2?(m1-m2).toFixed(2):null;
+  const dc=v=>v===null?G.text3:parseFloat(v)>0?"#2E7D32":parseFloat(v)<0?G.red:G.text3;
+  const age=calcAge(profile.dob);
+
+
 
   return (
     <div style={{minHeight:"100vh",background:G.bg}}>
       <NavBar title={`Report Ciclo #${cycle.id+1}`} onBack={onBack}/>
       <div style={{padding:"16px 20px 120px"}}>
-        {!exported?(
-          <>
+        <>
             <Card style={{background:`linear-gradient(135deg,${G.green},${G.gl})`,color:"#fff"}}>
               <div style={{fontSize:20,fontWeight:900,letterSpacing:-0.3}}>{profile.nome} {profile.cognome}</div>
               <div style={{fontSize:13,opacity:0.85,marginTop:3}}>{age} anni · {profile.altezza} cm · dal {cycle.startDate}</div>
@@ -1028,17 +1046,8 @@ Return ONLY the raw base64 string.`;
                 <div style={{fontSize:14,color:G.text,lineHeight:1.6}}>{cycle.feedback[s.key]}</div>
               </Card>
             ):null)}
-            <Btn onClick={doExport} disabled={loading}>{loading?"Generazione in corso…":"📊 Genera Report Excel"}</Btn>
-          </>
-        ):(
-          <Card style={{textAlign:"center",padding:"44px 20px",background:`linear-gradient(135deg,#2E7D32,#43A047)`}}>
-            <div style={{fontSize:60,marginBottom:16}}>✅</div>
-            <div style={{fontSize:22,fontWeight:900,color:"#fff",marginBottom:8,letterSpacing:-0.3}}>Report generato!</div>
-            <div style={{fontSize:14,color:"rgba(255,255,255,0.85)"}}>
-              Ciclo #{cycle.id+1} completato.<br/>Il prossimo partirà con la media peso calcolata automaticamente.
-            </div>
-          </Card>
-        )}
+            <ExportButton profile={profile} cycle={cycle} onConfirm={onConfirm}/>
+        </>
       </div>
     </div>
   );
@@ -2018,7 +2027,7 @@ function ScreenGrafico({cycles,onBack}) {
 }
 
 // ── Screen: Previous ───────────────────────────────────────────────────────────
-function ScreenPrevious({cycle,profile,onOpenReport,onBack}) {
+function ScreenPrevious({cycle,profile,onConfirm,onBack}) {
   const half=Math.ceil(cycle.days.length/2);
   const s1=cycle.days.slice(0,half),s2=cycle.days.slice(half);
   const m1=avg(s1),m2=avg(s2);
@@ -2059,9 +2068,9 @@ function ScreenPrevious({cycle,profile,onOpenReport,onBack}) {
             <div style={{fontSize:14,color:G.text,lineHeight:1.6}}>{cycle.feedback[s.key]}</div>
           </Card>
         ):null)}
-        {cycle.exported && !cycle.completed && onOpenReport && (
+        {cycle.exported && !cycle.completed && (
           <div style={{marginTop:8}}>
-            <Btn variant="success" onClick={onOpenReport}>📊 Genera Report Excel →</Btn>
+            <ExportButton profile={profile} cycle={cycle} onConfirm={onConfirm} label="📊 Genera Report Excel" small={false}/>
           </div>
         )}
       </div>
@@ -2275,7 +2284,7 @@ function App() {
     return <ScreenReport profile={profile} cycle={reportCycle} onConfirm={handleConfirmExport} onBack={()=>setScreen("dashboard")}/>;
   if(screen==="previous"&&viewingCycleId!==null){
     const c=cycles.find(c=>c.id===viewingCycleId);
-    if(c)return <ScreenPrevious cycle={c} profile={profile} onOpenReport={c.exported&&!c.completed?()=>setScreen("report"):null} onBack={()=>setScreen("dashboard")}/>;
+    if(c)return <ScreenPrevious cycle={c} profile={profile} onConfirm={c.exported&&!c.completed?handleConfirmExport:null} onBack={()=>setScreen("dashboard")}/>;
   }
   return <ScreenDashboard
     profile={profile} cycles={cycles}
