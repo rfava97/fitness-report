@@ -902,7 +902,7 @@ function ExportButton({profile, cycle, onConfirm, label="📊 Genera Report Exce
         age: String(calcAge(profile.dob)),
       };
 
-      const prompt = `Run this Python script and return ONLY the base64 output string with no other text, no markdown, no explanation.
+      const prompt = `Run this Python script and return ONLY the base64 output string with absolutely no other text, no markdown, no explanation, no newlines, no spaces.
 
 The script requires this JSON as argument (pass it as sys.argv[1]):
 ${JSON.stringify(JSON.stringify(cycleData))}
@@ -912,7 +912,7 @@ Script:
 ${pyScript}
 \`\`\`
 
-Return ONLY the raw base64 string.`;
+CRITICAL: Your entire response must be ONLY the raw base64 string - a single continuous string of characters [A-Za-z0-9+/=] with zero spaces, zero newlines, zero other characters. Nothing else.`;
 
       const resp = await fetch(PROXY_URL, {
         method: 'POST',
@@ -939,21 +939,38 @@ Return ONLY the raw base64 string.`;
       const result = await resp.json();
       let b64 = '';
 
-      // Extract base64 from response
+      // Extract base64 from response - get full text, strip whitespace and markdown
       for (const block of (result.content||[])) {
         if (block.type === 'text') {
-          const txt = block.text.trim().replace(/```[\s\S]*?```/g,'').trim();
-          // Find base64 string (long alphanumeric+/= string)
-          const match = txt.match(/[A-Za-z0-9+/]{100,}={0,2}/);
-          if (match) { b64 = match[0]; break; }
-          if (txt.length > 100 && /^[A-Za-z0-9+/]/.test(txt)) { b64 = txt; break; }
+          // Remove markdown fences and all whitespace
+          let txt = block.text
+            .replace(/```[\s\S]*?```/g,'')
+            .replace(/`/g,'')
+            .replace(/\s/g,'')
+            .trim();
+          // Validate: must be only base64 chars and reasonable length
+          if (txt.length > 200 && /^[A-Za-z0-9+/]+=*$/.test(txt)) {
+            b64 = txt; break;
+          }
+          // Fallback: find the longest base64-looking block
+          const matches = block.text.replace(/\s/g,'').match(/[A-Za-z0-9+/]{200,}={0,2}/g);
+          if (matches) {
+            b64 = matches.reduce((a,b) => a.length > b.length ? a : b, '');
+            break;
+          }
         }
       }
 
       if (!b64) throw new Error('Nessun base64 ricevuto dalla risposta API');
 
+      // Validate base64 before decode
+      const b64clean = b64.replace(/[^A-Za-z0-9+/=]/g,'');
+      if (b64clean.length < 100) throw new Error('Base64 troppo corto o non valido');
+
       // Decode base64 and trigger download
-      const binary = atob(b64);
+      let binary;
+      try { binary = atob(b64clean); }
+      catch(e) { throw new Error('Errore decodifica base64: ' + e.message); }
       const bytes = new Uint8Array(binary.length);
       for (let i=0; i<binary.length; i++) bytes[i] = binary.charCodeAt(i);
       const blob = new Blob([bytes], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
