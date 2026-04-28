@@ -740,10 +740,10 @@ function ScreenDashboard({profile,cycles,onOpenDay,onOpenFeedback,onNewCycle,onO
           )
         )}
 
-        {cycles.filter(c=>c.completed).length>0&&(
+        {cycles.filter(c=>c.completed||c.exported).length>0&&(
           <div style={{marginTop:16}}>
             <SectionLabel>Report precedenti</SectionLabel>
-            {cycles.filter(c=>c.completed).slice().reverse().map(c=>(
+            {cycles.filter(c=>c.completed||c.exported).slice().reverse().map(c=>(
               <Card key={c.id} onClick={()=>onOpenPrevious(c.id)} style={{cursor:'pointer',
                 display:"flex",justifyContent:"space-between",alignItems:"center",padding:"14px 18px"}}>
                 <div>
@@ -2071,6 +2071,11 @@ function ScreenPrevious({cycle,profile,onConfirm,onBack}) {
         {cycle.exported && !cycle.completed && (
           <div style={{marginTop:8}}>
             <ExportButton profile={profile} cycle={cycle} onConfirm={onConfirm} label="📊 Genera Report Excel" small={false}/>
+          </div>
+        )}
+        {cycle.completed && profile && (
+          <div style={{marginTop:8}}>
+            <ExportButton profile={profile} cycle={cycle} onConfirm={null} label="📊 Riesporta Report Excel" small={false}/>
           </div>
         )}
       </div>
