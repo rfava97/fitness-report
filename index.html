@@ -882,113 +882,185 @@ function ExportButton({profile, cycle, onConfirm, label="📊 Genera Report Exce
   const doExport=async()=>{
     setLoading(true);
     try {
-      const pyScript = "from openpyxl import Workbook\nfrom openpyxl.styles import Font, PatternFill, Alignment, Border, Side\nfrom openpyxl.utils import get_column_letter\nimport base64, io, json, sys\n\n# Accept cycle data as JSON argument\ndata = json.loads(sys.argv[1]) if len(sys.argv)>1 else {}\n\nprofile = data.get('profile', {})\ncycle = data.get('cycle', {})\ntoday = data.get('today', '01-01-2026')\n\nnome = profile.get('nome','')\ncognome = profile.get('cognome','')\naltezza = profile.get('altezza','')\ndob = profile.get('dob','')\nage = data.get('age','')\n\ndays = cycle.get('days', [])\nhalf = (len(days)+1)//2\ns1 = days[:half] if days else []\ns2 = days[half:] if days else []\nmediaPesoPrec = cycle.get('mediaPesoPrec','')\nmediaPassi1 = cycle.get('mediaPassiSett1','')\nmediaPassi2 = cycle.get('mediaPassiSett2','')\nfeedback = cycle.get('feedback', {})\n\n# \u2500\u2500 Style helpers \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\nFONT_NAME = 'Aptos Narrow'\nFONT_SIZE = 12\nthin = Side(style='thin')\nBORDER_ALL = Border(left=thin, right=thin, top=thin, bottom=thin)\nBORDER_TOP_BOT = Border(top=thin, bottom=thin)\nBORDER_RIGHT = Border(right=thin)\nBORDER_LEFT = Border(left=thin)\nBORDER_TOP = Border(top=thin)\nBORDER_BOT = Border(bottom=thin)\nFILL_WHITE = PatternFill('solid', fgColor='FFFFFFFF')\nALIGN_CENTER = Alignment(horizontal='center', vertical='bottom')\nALIGN_LEFT   = Alignment(horizontal='left',   vertical='bottom')\nALIGN_CENTER_WRAP = Alignment(horizontal='center', vertical='center', wrap_text=True)\nALIGN_LEFT_WRAP   = Alignment(horizontal='left',   vertical='center', wrap_text=True)\n\ndef font(bold=False, size=FONT_SIZE, color='FF000000', name=FONT_NAME):\n    return Font(name=name, size=size, bold=bold, color=color)\n\ndef style(ws, addr, value=None, bold=False, fill=True, border=None, align=None,\n          font_size=FONT_SIZE, font_color='FF000000', font_name=FONT_NAME, num_fmt=None):\n    cell = ws[addr]\n    if value is not None:\n        cell.value = value\n    cell.font = Font(name=font_name, size=font_size, bold=bold, color=font_color)\n    if fill:\n        cell.fill = FILL_WHITE\n    cell.border = border if border else BORDER_ALL\n    if align:\n        cell.alignment = align\n    if num_fmt:\n        cell.number_format = num_fmt\n    return cell\n\ndef fill_merge_border(ws, min_row, min_col, max_row, max_col, top=False, bot=False, left=False, right=False):\n    \"\"\"Apply borders to interior cells of a merged range.\"\"\"\n    for r in range(min_row, max_row+1):\n        for c in range(min_col, max_col+1):\n            cell = ws.cell(row=r, column=c)\n            cell.font = Font(name=FONT_NAME, size=FONT_SIZE)\n            t = thin if (top and r==min_row) else None\n            b = thin if (bot and r==max_row) else None\n            l = thin if (left and c==min_col) else None\n            ri = thin if (right and c==max_col) else None\n            cell.border = Border(top=t, bottom=b, left=l, right=ri)\n\n# \u2500\u2500 Workbook \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\nwb = Workbook()\nws = wb.active\nws.title = 'Foglio1'\n\n# Column widths (matching original)\ncol_widths = {'A':8,'B':12,'C':12,'D':14,'E':8,'F':10,'G':13.33,'H':22,\n              'I':8,'J':10,'K':10,'L':10,'M':20,'N':12,'O':12,'P':12,'Q':12,'R':12}\nfor col, w in col_widths.items():\n    ws.column_dimensions[col].width = w\n\n# Row heights\nfor r in range(1,150):\n    ws.row_dimensions[r].height = 15\nws.row_dimensions[96].height = 31.5\n\n# \u2500\u2500 ROW 3: Nome, Et\u00e0, Data \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\nws.merge_cells('B3:D3')\nstyle(ws,'B3',f'NOME= {nome} {cognome}', align=ALIGN_LEFT)\nfill_merge_border(ws,3,2,3,4,top=True,bot=True,left=True,right=True)\n\nws.merge_cells('F3:G3')\nstyle(ws,'F3',f'Et\u00e0= {age}', align=ALIGN_LEFT)\nfill_merge_border(ws,3,6,3,7,top=True,bot=True,left=True,right=True)\n\nws.merge_cells('I3:J3')\nstyle(ws,'I3',f'DATA= {today}', align=ALIGN_LEFT)\nfill_merge_border(ws,3,9,3,10,top=True,bot=True,left=True,right=True)\n\n# \u2500\u2500 ROW 5: Cognome, Altezza, Passi \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\nws.merge_cells('B5:D5')\nstyle(ws,'B5',f'COGNOME= {cognome}', align=ALIGN_LEFT)\nfill_merge_border(ws,5,2,5,4,top=True,bot=True,left=True,right=True)\n\nws.merge_cells('F5:G5')\nstyle(ws,'F5',f'ALTEZZA= {altezza}', align=ALIGN_LEFT)\nfill_merge_border(ws,5,6,5,7,top=True,bot=True,left=True,right=True)\n\nws.merge_cells('J5:M7')\npassi_val = f'MEDIA PASSI SETTIMANA 1={mediaPassi1}\\nMEDIA PASSI SETTIMANA 2= {mediaPassi2}'\nstyle(ws,'J5', passi_val, align=ALIGN_LEFT_WRAP)\nfill_merge_border(ws,5,10,7,13,top=True,bot=True,left=True,right=True)\n\n# \u2500\u2500 ROW 8: Ultima settimana report precedente \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\nws.merge_cells('C8:H8')\nstyle(ws,'C8','ULTIMA SETTIMANA REPORT PRECEDENTE', bold=True, align=ALIGN_CENTER)\nfill_merge_border(ws,8,3,8,8,top=True,bot=True,left=True,right=True)\n\n# \u2500\u2500 ROW 10: Media peso precedente \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\nstyle(ws,'C10','MEDIA PESO ', align=ALIGN_LEFT)\nstyle(ws,'D10','\u2192', align=ALIGN_CENTER)\nmp_val = float(mediaPesoPrec) if mediaPesoPrec else None\nif mp_val:\n    c = style(ws,'E10', mp_val, align=ALIGN_LEFT)\n    c.number_format = '0.00'\nelse:\n    style(ws,'E10','', align=ALIGN_LEFT)\n\n# \u2500\u2500 INDICAZIONI (col M) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\nws.merge_cells('M12:R13')\nc = style(ws,'M12','INDICAZIONI', font_size=18, font_color='FFFF0000', align=ALIGN_CENTER)\nfill_merge_border(ws,12,13,13,18,top=True,bot=True,left=True,right=True)\n\nws.merge_cells('M14:R24')\nindicazioni = (\"La media peso della settimana report precedente \u00e8 da inserire manualmente. \"\n               \"La media peso della settimana 1 e 2 le calcola in automatico. \"\n               \"Il delta peso viene calcolato in automatico.\\n\\n\"\n               \"Dove c'\u00e8 scritto giorno mi devi scrivere:\\n\"\n               \"CHEAT se hai fatto un pasto libero dove hai mangiato molto e sforato le grammature previste dal piano.\\n\"\n               \"FREE MEAL se hai fatto un pasto libero dove per\u00f2 hai rispettato all'incirca le grammature previste dal piano.\\n\"\n               \"OK se \u00e8 stato un giorno previsto dal piano.\")\nstyle(ws,'M14', indicazioni, align=ALIGN_LEFT_WRAP)\nfill_merge_border(ws,14,13,24,18,top=True,bot=True,left=True,right=True)\n\n# \u2500\u2500 PRIMA SETTIMANA \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\nws.merge_cells('C13:H13')\nstyle(ws,'C13',' PRIMA SETTIMANA REPORT ', bold=True, align=ALIGN_CENTER)\nfill_merge_border(ws,13,3,13,8,top=True,bot=True,left=True,right=True)\n\n# Headers row 14\nfor addr, val in [('B14','GIORNO'),('D14','DATA'),('F14','PESO'),('H14','GRUPPI ALLENATI')]:\n    style(ws, addr, val, align=ALIGN_CENTER)\nws.merge_cells('B14:C14'); fill_merge_border(ws,14,2,14,3,top=True,bot=True,left=True,right=True)\nws.merge_cells('D14:E14'); fill_merge_border(ws,14,4,14,5,top=True,bot=True,left=True,right=True)\nws.merge_cells('F14:G14'); fill_merge_border(ws,14,6,14,7,top=True,bot=True,left=True,right=True)\nws.merge_cells('H14:J14'); fill_merge_border(ws,14,8,14,10,top=True,bot=True,left=True,right=True)\n\n# Settimana 1 data rows 15-21 (always 7 rows, fill with empty if less)\ns1_padded = s1 + [{'giorno':'','data':'','peso':'','gruppiAllenati':''}]*(7-len(s1))\nfor i, day in enumerate(s1_padded):\n    r = 15+i\n    style(ws,f'B{r}', day['giorno'], align=ALIGN_CENTER)\n    ws.merge_cells(f'B{r}:C{r}'); fill_merge_border(ws,r,2,r,3,top=True,bot=True,left=True,right=True)\n    style(ws,f'D{r}', day['data'], align=ALIGN_CENTER)\n    ws.merge_cells(f'D{r}:E{r}'); fill_merge_border(ws,r,4,r,5,top=True,bot=True,left=True,right=True)\n    p = float(day['peso']) if day['peso'] else None\n    c = style(ws,f'F{r}', p if p else '', align=ALIGN_CENTER)\n    if p: c.number_format = '0.0'\n    ws.merge_cells(f'F{r}:G{r}'); fill_merge_border(ws,r,6,r,7,top=True,bot=True,left=True,right=True)\n    style(ws,f'H{r}', day['gruppiAllenati'], align=ALIGN_CENTER)\n    ws.merge_cells(f'H{r}:J{r}'); fill_merge_border(ws,r,8,r,10,top=True,bot=True,left=True,right=True)\n\n# Media + delta settimana 1 (row 23)\nstyle(ws,'C23','MEDIA PESO ', align=ALIGN_LEFT)\nws['D23'] = '=AVERAGE(F15:F21)'\nws['D23'].font = Font(name=FONT_NAME, size=FONT_SIZE)\nws['D23'].border = BORDER_ALL\nws['D23'].alignment = ALIGN_LEFT\nws['D23'].number_format = '0.00'\nstyle(ws,'G23','DELTA PESO ', align=ALIGN_LEFT)\nws['H23'] = '=E10-D23'\nws['H23'].font = Font(name=FONT_NAME, size=FONT_SIZE)\nws['H23'].border = BORDER_ALL\nws['H23'].alignment = ALIGN_LEFT\nws['H23'].number_format = '0.00'\n\n# \u2500\u2500 SECONDA SETTIMANA \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\nws.merge_cells('C26:H26')\nstyle(ws,'C26',' SECONDA SETTIMANA REPORT ', bold=True, align=ALIGN_CENTER)\nfill_merge_border(ws,26,3,26,8,top=True,bot=True,left=True,right=True)\n\nfor addr, val in [('B27','GIORNO'),('D27','DATA'),('F27','PESO'),('H27','GRUPPI ALLENATI')]:\n    style(ws, addr, val, align=ALIGN_CENTER)\nws.merge_cells('B27:C27'); fill_merge_border(ws,27,2,27,3,top=True,bot=True,left=True,right=True)\nws.merge_cells('D27:E27'); fill_merge_border(ws,27,4,27,5,top=True,bot=True,left=True,right=True)\nws.merge_cells('F27:G27'); fill_merge_border(ws,27,6,27,7,top=True,bot=True,left=True,right=True)\nws.merge_cells('H27:J27'); fill_merge_border(ws,27,8,27,10,top=True,bot=True,left=True,right=True)\n\ns2_padded = s2 + [{'giorno':'','data':'','peso':'','gruppiAllenati':''}]*(7-len(s2))\nfor i, day in enumerate(s2_padded):\n    r = 28+i\n    style(ws,f'B{r}', day['giorno'], align=ALIGN_CENTER)\n    ws.merge_cells(f'B{r}:C{r}'); fill_merge_border(ws,r,2,r,3,top=True,bot=True,left=True,right=True)\n    style(ws,f'D{r}', day['data'], align=ALIGN_CENTER)\n    ws.merge_cells(f'D{r}:E{r}'); fill_merge_border(ws,r,4,r,5,top=True,bot=True,left=True,right=True)\n    p = float(day['peso']) if day['peso'] else None\n    c = style(ws,f'F{r}', p if p else '', align=ALIGN_CENTER)\n    if p: c.number_format = '0.0'\n    ws.merge_cells(f'F{r}:G{r}'); fill_merge_border(ws,r,6,r,7,top=True,bot=True,left=True,right=True)\n    style(ws,f'H{r}', day['gruppiAllenati'], align=ALIGN_CENTER)\n    ws.merge_cells(f'H{r}:J{r}'); fill_merge_border(ws,r,8,r,10,top=True,bot=True,left=True,right=True)\n\nws['D36'] = '=AVERAGE(F28:F34)'\nws['D36'].font = Font(name=FONT_NAME, size=FONT_SIZE)\nws['D36'].border = BORDER_ALL\nws['D36'].number_format = '0.00'\nstyle(ws,'C36','MEDIA PESO ', align=ALIGN_LEFT)\nws['H36'] = '=D23-D36'\nws['H36'].font = Font(name=FONT_NAME, size=FONT_SIZE)\nws['H36'].border = BORDER_ALL\nws['H36'].number_format = '0.00'\nstyle(ws,'G36','DELTA PESO ', align=ALIGN_LEFT)\n\n# \u2500\u2500 FEEDBACK \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\nfb_sections = [\n    (41,'ASPETTO VISIVO IN ALLENAMENTO  (ES VOLUMI, VASCOLARIZZAZIONE).','aspettoVisivo',42),\n    (52,'CARICHI STABILI, IN AUMENTO O DIMINUISCONO?','carichi',53),\n    (63,'SENSAZIONI IN ALLENAMENTO.','sensazioni',64),\n    (74,'APPETITO. IN CHE MOMENTO DELLA GIORNATA?','appetito',75),\n    (85,'ORE DI SONNO. RIPOSI BENE?','sonno',86),\n    (96,'COME TI STAI TROVANDO CON IL PIANO ALIMENTARE? DIMMI TUTTE LE TUE SENSAZIONI\\n(ES RECUPERI BENE, TI SENTI ENERGICO DURANTE LA GIORNATA, SEI PERFORMANTE IN ALLENAMENTO)','pianoAlimentare',97),\n    (107,'QUANTE VOLTE VAI IN BAGNO? ASPETTO DELLE FECI 1-7.','bagno',108),\n    (118,'INTEGRATORI UTILIZZATI IN QUESTO MOMENTO. INDICARE ANCHE I GR.','integratori',119),\n    (129,'SEI CONTENTO DEL SERVIZIO OFFERTO? COME TI STAI TROVANDO?','servizio',130),\n    (140,'VARIE.','varie',141),\n]\nfor (label_row, label_text, key, text_row) in fb_sections:\n    # Label row: merge B:I, thin border all around\n    ws.merge_cells(f'B{label_row}:I{label_row}')\n    style(ws,f'B{label_row}', label_text, bold=False, align=ALIGN_LEFT)\n    fill_merge_border(ws,label_row,2,label_row,9,top=True,bot=True,left=True,right=True)\n    # Text row: merge B:I rows text_row to text_row+7\n    end_row = text_row+7\n    ws.merge_cells(f'B{text_row}:I{end_row}')\n    style(ws,f'B{text_row}', feedback.get(key,''), align=ALIGN_LEFT_WRAP)\n    fill_merge_border(ws,text_row,2,end_row,9,top=True,bot=True,left=True,right=True)\n    ws.row_dimensions[text_row].height = 15\n\n# \u2500\u2500 Save to base64 \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\nbuf = io.BytesIO()\nwb.save(buf)\nbuf.seek(0)\nb64 = base64.b64encode(buf.read()).decode()\nprint(b64)\n";
+      // Pure SheetJS export - no API calls, works offline on Safari iOS
+      const today2 = today || todayStr();
+      const age2 = age || calcAge(profile.dob);
+      const half = Math.ceil(cycle.days.length/2);
+      const s1days = cycle.days.slice(0,half);
+      const s2days = cycle.days.slice(half);
+      const pad7 = (arr) => [...arr, ...Array(Math.max(0,7-arr.length)).fill({giorno:'',data:'',peso:'',gruppiAllenati:''})].slice(0,7);
+      const s1 = pad7(s1days);
+      const s2 = pad7(s2days);
 
-      const cycleData = {
-        profile: {
-          nome: profile.nome,
-          cognome: profile.cognome,
-          altezza: profile.altezza,
-          dob: profile.dob,
-        },
-        cycle: {
-          mediaPesoPrec: cycle.mediaPesoPrec,
-          mediaPassiSett1: cycle.mediaPassiSett1,
-          mediaPassiSett2: cycle.mediaPassiSett2,
-          days: cycle.days,
-          feedback: cycle.feedback,
-        },
-        today,
-        age: String(calcAge(profile.dob)),
+      const wb = XLSX.utils.book_new();
+      const ws = {};
+
+      // Helper: write a cell
+      const C = (addr, v, t) => {
+        ws[addr] = {v, t: t||( typeof v==='number'?'n': v instanceof Date?'d':'s'), s:{}};
       };
+      const N = (addr, v) => C(addr, v, 'n');
+      const S = (addr, v) => C(addr, String(v||''), 's');
 
-      const prompt = `Run this Python script and return ONLY the base64 output string with absolutely no other text, no markdown, no explanation, no newlines, no spaces.
+      // Set worksheet range
+      ws['!ref'] = 'A1:R155';
 
-The script requires this JSON as argument (pass it as sys.argv[1]):
-${JSON.stringify(JSON.stringify(cycleData))}
+      // Column widths
+      ws['!cols'] = [
+        {wch:8},{wch:12},{wch:12},{wch:14},{wch:8},{wch:10},{wch:13.33},{wch:22},
+        {wch:8},{wch:10},{wch:10},{wch:10},{wch:20},{wch:12},{wch:12},{wch:12},{wch:12},{wch:12}
+      ];
 
-Script:
-\`\`\`python
-${pyScript}
-\`\`\`
-
-CRITICAL: Your entire response must be ONLY the raw base64 string - a single continuous string of characters [A-Za-z0-9+/=] with zero spaces, zero newlines, zero other characters. Nothing else.`;
-
-      const resp = await fetch(PROXY_URL, {
-        method: 'POST',
-        headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
-          max_tokens: 32000,
-          tools: [{
-            name: 'run_python',
-            description: 'Execute Python code and return result',
-            input_schema: {
-              type: 'object',
-              properties: {
-                code: {type:'string'},
-                args: {type:'array', items:{type:'string'}}
-              },
-              required: ['code']
-            }
-          }],
-          messages: [{role:'user', content: prompt}]
-        })
+      // Row heights (SheetJS uses points * 3/4 for hpx)
+      ws['!rows'] = Array(155).fill(null).map((_,i) => {
+        if (i===95) return {hpx:31.5}; // row 96
+        return {hpx:15};
       });
 
-      const result = await resp.json();
-      let b64 = '';
+      // ROW 3
+      S('B3', `NOME= ${profile.nome||''} ${profile.cognome||''}`);
+      S('F3', `Età= ${age2||''}`);
+      S('I3', `DATA= ${today2}`);
 
-      // Extract base64 from response - get full text, strip whitespace and markdown
-      for (const block of (result.content||[])) {
-        if (block.type === 'text') {
-          // Remove markdown fences and all whitespace
-          let txt = block.text
-            .replace(/```[\s\S]*?```/g,'')
-            .replace(/`/g,'')
-            .replace(/\s/g,'')
-            .trim();
-          // Validate: must be only base64 chars and reasonable length
-          if (txt.length > 200 && /^[A-Za-z0-9+/]+=*$/.test(txt)) {
-            b64 = txt; break;
-          }
-          // Fallback: find the longest base64-looking block
-          const matches = block.text.replace(/\s/g,'').match(/[A-Za-z0-9+/]{200,}={0,2}/g);
-          if (matches) {
-            b64 = matches.reduce((a,b) => a.length > b.length ? a : b, '');
-            break;
-          }
-        }
+      // ROW 5
+      S('B5', `COGNOME= ${profile.cognome||''}`);
+      S('F5', `ALTEZZA= ${profile.altezza||''}`);
+      S('J5', `MEDIA PASSI SETTIMANA 1=${cycle.mediaPassiSett1||''}\nMEDIA PASSI SETTIMANA 2= ${cycle.mediaPassiSett2||''}`);
+
+      // ROW 8
+      S('C8', 'ULTIMA SETTIMANA REPORT PRECEDENTE');
+
+      // ROW 10
+      S('C10', 'MEDIA PESO ');
+      S('D10', '→');
+      const mpVal = parseFloat(cycle.mediaPesoPrec);
+      if (!isNaN(mpVal)) N('E10', mpVal);
+
+      // ROW 13: header S1
+      S('C13', ' PRIMA SETTIMANA REPORT ');
+
+      // ROW 14: headers
+      S('B14','GIORNO'); S('D14','DATA'); S('F14','PESO'); S('H14','GRUPPI ALLENATI');
+
+      // ROWS 15-21: settimana 1
+      s1.forEach((d,i)=>{
+        const r=15+i;
+        S(`B${r}`, d.giorno||'');
+        S(`D${r}`, d.data||'');
+        const p=parseFloat(d.peso); if(!isNaN(p)&&p>0) N(`F${r}`,p);
+        S(`H${r}`, d.gruppiAllenati||'');
+      });
+
+      // ROW 23: media+delta S1
+      S('C23','MEDIA PESO ');
+      const m1v = s1.map(d=>parseFloat(d.peso)).filter(v=>!isNaN(v)&&v>0);
+      const m1 = m1v.length ? parseFloat((m1v.reduce((a,b)=>a+b,0)/m1v.length).toFixed(2)) : null;
+      if (m1!==null) N('D23', m1);
+      S('G23','DELTA PESO ');
+      if (m1!==null && !isNaN(mpVal)) N('H23', parseFloat((mpVal-m1).toFixed(2)));
+
+      // ROW 26: header S2
+      S('C26', ' SECONDA SETTIMANA REPORT ');
+
+      // ROW 27: headers
+      S('B27','GIORNO'); S('D27','DATA'); S('F27','PESO'); S('H27','GRUPPI ALLENATI');
+
+      // ROWS 28-34: settimana 2
+      s2.forEach((d,i)=>{
+        const r=28+i;
+        S(`B${r}`, d.giorno||'');
+        S(`D${r}`, d.data||'');
+        const p=parseFloat(d.peso); if(!isNaN(p)&&p>0) N(`F${r}`,p);
+        S(`H${r}`, d.gruppiAllenati||'');
+      });
+
+      // ROW 36: media+delta S2
+      S('C36','MEDIA PESO ');
+      const m2v = s2.map(d=>parseFloat(d.peso)).filter(v=>!isNaN(v)&&v>0);
+      const m2 = m2v.length ? parseFloat((m2v.reduce((a,b)=>a+b,0)/m2v.length).toFixed(2)) : null;
+      if (m2!==null) N('D36', m2);
+      S('G36','DELTA PESO ');
+      if (m1!==null && m2!==null) N('H36', parseFloat((m1-m2).toFixed(2)));
+
+      // FEEDBACK (10 sezioni)
+      const fbDef = [
+        {lr:41, tr:42, key:'aspettoVisivo', lbl:'ASPETTO VISIVO IN ALLENAMENTO  (ES VOLUMI, VASCOLARIZZAZIONE).'},
+        {lr:52, tr:53, key:'carichi',       lbl:'CARICHI STABILI, IN AUMENTO O DIMINUISCONO?'},
+        {lr:63, tr:64, key:'sensazioni',    lbl:'SENSAZIONI IN ALLENAMENTO.'},
+        {lr:74, tr:75, key:'appetito',      lbl:'APPETITO. IN CHE MOMENTO DELLA GIORNATA?'},
+        {lr:85, tr:86, key:'sonno',         lbl:'ORE DI SONNO. RIPOSI BENE?'},
+        {lr:96, tr:97, key:'pianoAlimentare',lbl:'COME TI STAI TROVANDO CON IL PIANO ALIMENTARE?'},
+        {lr:107,tr:108,key:'bagno',         lbl:'QUANTE VOLTE VAI IN BAGNO? ASPETTO DELLE FECI 1-7.'},
+        {lr:118,tr:119,key:'integratori',   lbl:'INTEGRATORI UTILIZZATI IN QUESTO MOMENTO. INDICARE ANCHE I GR.'},
+        {lr:129,tr:130,key:'servizio',      lbl:'SEI CONTENTO DEL SERVIZIO OFFERTO? COME TI STAI TROVANDO?'},
+        {lr:140,tr:141,key:'varie',         lbl:'VARIE.'},
+      ];
+      fbDef.forEach(({lr,tr,key,lbl})=>{
+        S(`B${lr}`, lbl);
+        S(`B${tr}`, cycle.feedback&&cycle.feedback[key] ? cycle.feedback[key] : '');
+      });
+
+      // MERGES
+      ws['!merges'] = [
+        // Row 3
+        {s:{r:2,c:1},e:{r:2,c:3}},   // B3:D3
+        {s:{r:2,c:5},e:{r:2,c:6}},   // F3:G3
+        {s:{r:2,c:8},e:{r:2,c:9}},   // I3:J3
+        // Row 5
+        {s:{r:4,c:1},e:{r:4,c:3}},   // B5:D5
+        {s:{r:4,c:5},e:{r:4,c:6}},   // F5:G5
+        {s:{r:4,c:9},e:{r:6,c:12}},  // J5:M7
+        // Row 8
+        {s:{r:7,c:2},e:{r:7,c:7}},   // C8:H8
+        // Row 13
+        {s:{r:12,c:2},e:{r:12,c:7}}, // C13:H13
+        // Row 14 headers
+        {s:{r:13,c:1},e:{r:13,c:2}},{s:{r:13,c:3},e:{r:13,c:4}},
+        {s:{r:13,c:5},e:{r:13,c:6}},{s:{r:13,c:7},e:{r:13,c:9}},
+        // Row 26
+        {s:{r:25,c:2},e:{r:25,c:7}}, // C26:H26
+        // Row 27 headers
+        {s:{r:26,c:1},e:{r:26,c:2}},{s:{r:26,c:3},e:{r:26,c:4}},
+        {s:{r:26,c:5},e:{r:26,c:6}},{s:{r:26,c:7},e:{r:26,c:9}},
+      ];
+      // S1 data rows 15-21
+      for(let i=0;i<7;i++){
+        const r=14+i;
+        ws['!merges'].push({s:{r,c:1},e:{r,c:2}},{s:{r,c:3},e:{r,c:4}},
+                           {s:{r,c:5},e:{r,c:6}},{s:{r,c:7},e:{r,c:9}});
       }
+      // S2 data rows 28-34
+      for(let i=0;i<7;i++){
+        const r=27+i;
+        ws['!merges'].push({s:{r,c:1},e:{r,c:2}},{s:{r,c:3},e:{r,c:4}},
+                           {s:{r,c:5},e:{r,c:6}},{s:{r,c:7},e:{r,c:9}});
+      }
+      // Feedback merges: label row (1 row) + text block (8 rows)
+      fbDef.forEach(({lr,tr})=>{
+        ws['!merges'].push({s:{r:lr-1,c:1},e:{r:lr-1,c:8}});   // label B:I
+        ws['!merges'].push({s:{r:tr-1,c:1},e:{r:tr+6,c:8}});   // text B:I x8 rows
+      });
 
-      if (!b64) throw new Error('Nessun base64 ricevuto dalla risposta API');
+      XLSX.utils.book_append_sheet(wb, ws, 'Foglio1');
 
-      // Validate base64 before decode
-      const b64clean = b64.replace(/[^A-Za-z0-9+/=]/g,'');
-      if (b64clean.length < 100) throw new Error('Base64 troppo corto o non valido');
-
-      // Decode base64 and trigger download
-      let binary;
-      try { binary = atob(b64clean); }
-      catch(e) { throw new Error('Errore decodifica base64: ' + e.message); }
-      const bytes = new Uint8Array(binary.length);
-      for (let i=0; i<binary.length; i++) bytes[i] = binary.charCodeAt(i);
-      const blob = new Blob([bytes], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+      // Write binary and download
+      const wbout = XLSX.write(wb, {bookType:'xlsx', type:'array'});
+      const blob = new Blob([wbout], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `${today}.xlsx`;
-      document.body.appendChild(a);
-      a.click();
+      a.download = `${today2}.xlsx`;
+      document.body.appendChild(a); a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
 
     } catch(e) {
       console.error('Export error:', e);
-      alert('Errore nella generazione: ' + e.message);
+      alert('Errore generazione Excel: ' + e.message);
     }
     setLoading(false); setDone(true); if(onConfirm) onConfirm();
   };
+
   if(done) return (
     <div style={{background:"#E8F5E9",borderRadius:12,padding:"12px 16px",
       display:"flex",alignItems:"center",gap:10,border:"1px solid #A5D6A7"}}>
