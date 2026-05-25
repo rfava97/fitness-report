@@ -540,7 +540,7 @@ function PassiCard({cycle, onSave}) {
 }
 
 // ── Screen: Dashboard ──────────────────────────────────────────────────────────
-function ScreenDashboard({profile,cycles,onOpenDay,onOpenFeedback,onNewCycle,onOpenReport,onOpenPrevious,onOpenProfilo,onOpenGrafico,onOpenDieta,onChiudiCiclo,onSavePassi}) {
+function ScreenDashboard({profile,cycles,onOpenDay,onOpenFeedback,onNewCycle,onOpenReport,onOpenPrevious,onOpenProfilo,onOpenGrafico,onOpenDieta,onChiudiCiclo,onSavePassi,onDeleteCycle}) {
   const cycle=cycles.length>0?cycles[cycles.length-1]:null;
   const today=todayStr();
   const todayIdx=cycle?cycle.days.findIndex(d=>d.data===today):-1;
@@ -550,6 +550,8 @@ function ScreenDashboard({profile,cycles,onOpenDay,onOpenFeedback,onNewCycle,onO
   const pastDays=cycle?cycle.days.filter(d=>{const dt=dateFromStr(d.data),td=dateFromStr(today);return dt&&td&&dt<=td;}):[]; 
   // Ciclo chiuso in attesa di feedback/report: l'ultimo exported:true e completed:false
   const closedCycle = cycles.slice().reverse().find(c=>c.exported && !c.completed) || null;
+  // Current cycle is empty (no weight entered, not exported) → can be deleted
+  const cycleIsEmpty = cycle && !cycle.exported && !cycle.days.some(d=>d.peso && parseFloat(d.peso)>0);
   const fbDone = closedCycle && SEZIONI_FEEDBACK.every(s=>closedCycle.feedback[s.key].trim()!=="");
   const showFeedbackCta = !!closedCycle && !fbDone;
   const showReportCta = !!closedCycle && fbDone;
@@ -741,6 +743,15 @@ function ScreenDashboard({profile,cycles,onOpenDay,onOpenFeedback,onNewCycle,onO
               {cycle?"Inizia nuovo ciclo bisettimanale":"Inizia il primo ciclo"}
             </button>
           )
+        )}
+
+        {cycleIsEmpty && onDeleteCycle && (
+          <button onClick={()=>{if(window.confirm('Eliminare il ciclo #'+(cycle.id+1)+' (nessun dato inserito)?')) onDeleteCycle(cycle.id);}}
+            style={{width:"100%",padding:"12px 18px",borderRadius:14,border:"1px solid #ef5350",
+              background:"transparent",color:"#ef5350",fontSize:13,fontWeight:700,
+              cursor:"pointer",marginTop:8,display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
+            <span>🗑️</span> Elimina ciclo #{cycle.id+1} (vuoto)
+          </button>
         )}
 
         {cycles.filter(c=>c.completed||c.exported).length>0&&(
@@ -2225,32 +2236,39 @@ function App() {
   };
 
   const handleSaveProfilo=p=>{setProfile(p);setScreen("dashboard");};
+  const handleDeleteCycle=(id)=>{
+    setCycles(p=>{
+      const filtered = p.filter(c=>c.id!==id);
+      // Re-index ids to keep sequential
+      return filtered.map((c,i)=>({...c,id:i}));
+    });
+  };
   const handleNewCycle=()=>{
     // Block if there's a closed cycle with pending report
     const hasPending = cycles.some(c=>c.exported && !c.completed);
     if(hasPending) return;
-    // mediaPesoPrec = avg of all filled days of last completed cycle
-    const lastCompleted = cycles.slice().reverse().find(c=>c.completed);
+    // Use last exported cycle (completed or not) as reference for start date and mediaPesoPrec
+    const lastRef = cycles.slice().reverse().find(c=>c.exported || c.completed);
     let mediaPesoPrec = profile?.mediaPesoPrecIniziale || "";
-    if (lastCompleted) {
-      // mediaPesoPrec = avg of S2 (second half) of last completed cycle
-      const lDays = lastCompleted.days;
+    if (lastRef && lastRef.days && lastRef.days.length > 0) {
+      // mediaPesoPrec = avg of S2 (second half) of last cycle
+      const lDays = lastRef.days;
       const lHalf = Math.ceil(lDays.length / 2);
       const s2days = lDays.slice(lHalf);
       const s2avg = avg(s2days.filter(d=>d.peso));
-      // Fallback to mediaS2 stored, then full avg
-      mediaPesoPrec = String(
-        s2avg ??
-        (lastCompleted.mediaS2 ? parseFloat(lastCompleted.mediaS2) : null) ??
-        avg(lDays.filter(d=>d.peso)) ??
-        ""
-      );
+      const val = s2avg ??
+        (lastRef.mediaS2 ? parseFloat(lastRef.mediaS2) : null) ??
+        avg(lDays.filter(d=>d.peso)) ?? "";
+      mediaPesoPrec = val !== "" ? String(val) : "";
     }
-    // Start date: day after last day of last completed cycle, or visita anchor
+    // Start date: day after last day of last exported/completed cycle
     let startDate = new Date();
-    if(lastCompleted) {
-      const lastDay = lastCompleted.days[lastCompleted.days.length-1];
-      if(lastDay) { const d=dateFromStr(lastDay.data); if(d){ startDate=new Date(d); startDate.setDate(d.getDate()+1); }}
+    if(lastRef && lastRef.days && lastRef.days.length > 0) {
+      const lastDay = lastRef.days[lastRef.days.length-1];
+      if(lastDay) {
+        const d = dateFromStr(lastDay.data);
+        if(d) { startDate = new Date(d); startDate.setDate(d.getDate()+1); }
+      }
     } else if(profile?.visitaNutrizionista) {
       startDate = getCycleStart(profile.visitaNutrizionista);
     }
@@ -2402,6 +2420,7 @@ function App() {
     onOpenDay={handleOpenDay}
     onOpenFeedback={()=>setScreen("feedback")}
     onNewCycle={handleNewCycle}
+    onDeleteCycle={handleDeleteCycle}
     onOpenReport={()=>setScreen("report")}
     onOpenPrevious={id=>{setViewingCycleId(id);setScreen("previous");}}
     onOpenProfilo={()=>setScreen("profilo")}
