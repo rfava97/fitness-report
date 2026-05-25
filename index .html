@@ -81,7 +81,7 @@ function calcAge(dobStr) { const dob=dateFromStr(dobStr); if(!dob)return ""; let
 function avg(days) { const v=(days||[]).map(d=>parseFloat(d.peso)).filter(v=>!isNaN(v)&&v>0); if(!v.length)return null; return parseFloat((v.reduce((a,b)=>a+b,0)/v.length).toFixed(2)); }
 function makeNewCycle(startDate, mediaPesoPrec, cycleIndex, numDays) {
   const n = numDays||14;
-  const days = Array.from({length:n},(_,i)=>{ const d=new Date(startDate); d.setDate(d.getDate()+i); return {data:strFromDate(d),giorno:"ok",peso:"",gruppiAllenati:""}; });
+  const days = Array.from({length:n},(_,i)=>{ const d=new Date(startDate); d.setDate(d.getDate()+i); return {data:strFromDate(d),giorno:"ok",peso:"",gruppiAllenati:"",bagnoVolte:"",feciTipo:""}; });
   return {id:cycleIndex,startDate:strFromDate(startDate),mediaPesoPrec:mediaPesoPrec??"",mediaPassiSett1:"",mediaPassiSett2:"",days,feedback:Object.fromEntries(SEZIONI_FEEDBACK.map(s=>[s.key,""])),completed:false,exported:false};
 }
 function getCycleStart(visitaStr) {
@@ -785,6 +785,8 @@ function ScreenDay({cycle,dayIdx,onSave,onBack}) {
   const [giorno,setGiorno]=useState(day.giorno);
   const [peso,setPeso]=useState(day.peso);
   const [gruppi,setGruppi]=useState(day.gruppiAllenati||"");
+  const [bagnoVolte,setBagnoVolte]=useState(day.bagnoVolte||"");
+  const [feciTipo,setFeciTipo]=useState(day.feciTipo||"");
   const isToday=day.data===todayStr();
   const weekNum=dayIdx<Math.ceil(cycle.days.length/2)?1:2;
   const dayNum=(dayIdx%Math.ceil(cycle.days.length/2))+1;
@@ -822,9 +824,43 @@ function ScreenDay({cycle,dayIdx,onSave,onBack}) {
           <FInput value={gruppi} onChange={setGruppi} placeholder="Es. Schiena e Bicipiti"/>
         </Card>
 
-        <Btn onClick={()=>onSave({giorno,peso,gruppiAllenati:gruppi})} disabled={!peso}>Salva →</Btn>
+        <Card>
+          <div style={{fontSize:14,fontWeight:700,color:G.text,marginBottom:12}}>🚽 Evacuazione</div>
+          <div style={{display:'flex',gap:12,alignItems:'flex-start'}}>
+            <div style={{flex:1}}>
+              <div style={{fontSize:12,color:G.text3,fontWeight:700,marginBottom:6}}>Volte al giorno</div>
+              <FInput type="number" value={bagnoVolte} onChange={setBagnoVolte} placeholder="0" center/>
+            </div>
+            <div style={{flex:2}}>
+              <div style={{fontSize:12,color:G.text3,fontWeight:700,marginBottom:6}}>Tipo feci (1-7)</div>
+              <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
+                {[1,2,3,4,5,6,7].map(n=>(
+                  <button key={n} onClick={()=>setFeciTipo(feciTipo===String(n)?"":String(n))}
+                    style={{width:38,height:38,borderRadius:10,border:`2px solid ${feciTipo===String(n)?G.green:G.border}`,
+                      background:feciTipo===String(n)?G.cardGreen:'#FAFCF8',
+                      fontWeight:800,fontSize:15,cursor:'pointer',color:feciTipo===String(n)?G.green:G.text2,
+                      transition:'all 0.15s'}}>
+                    {n}
+                  </button>
+                ))}
+              </div>
+              <div style={{marginTop:8}}>
+                {feciTipo&&(
+                  <div style={{fontSize:11,color:G.text3,lineHeight:1.5}}>
+                    {feciTipo==="1"?"1 — Palline dure separate":feciTipo==="2"?"2 — Salsiccia grumosa":
+                     feciTipo==="3"?"3 — Salsiccia crepe":feciTipo==="4"?"4 — Salsiccia morbida (ideale)":
+                     feciTipo==="5"?"5 — Morbide con bordi netti":feciTipo==="6"?"6 — Poltacee":
+                     "7 — Acquose, nessuna forma"}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </Card>
+
+        <Btn onClick={()=>onSave({giorno,peso,gruppiAllenati:gruppi,bagnoVolte,feciTipo})} disabled={!peso}>Salva →</Btn>
         {peso&&(
-          <button onClick={()=>{onSave({giorno,peso,gruppiAllenati:gruppi});writeToAppleHealth(day.data,peso);}}
+          <button onClick={()=>{onSave({giorno,peso,gruppiAllenati:gruppi,bagnoVolte,feciTipo});writeToAppleHealth(day.data,peso);}}
             style={{width:"100%",marginTop:10,padding:"13px",borderRadius:14,
               border:"1.5px solid #E53935",background:"transparent",
               color:"#E53935",fontSize:15,fontWeight:700,cursor:"pointer",
@@ -1130,6 +1166,22 @@ function ScreenReport({profile,cycle,onConfirm,onBack}) {
               <Pill label="Δ S1→S2" value={d2?`${d2} kg`:null} color={dc(d2)}/>
             </div>
 
+            {(cycle.mediaBagnoVolte || cycle.mediaFeciTipo) && (
+              <>
+                <SectionLabel>Evacuazione (media ciclo)</SectionLabel>
+                <div style={{display:"flex",gap:8,marginBottom:16}}>
+                  {cycle.mediaBagnoVolte && (
+                    <Pill label="Volte/giorno" value={cycle.mediaBagnoVolte} unit="×" color={G.text3}/>
+                  )}
+                  {cycle.mediaFeciTipo && (
+                    <Pill label="Tipo feci" value={`${cycle.mediaFeciTipo}/7`} color={
+                      parseInt(cycle.mediaFeciTipo)>=3&&parseInt(cycle.mediaFeciTipo)<=5?G.green:G.orange
+                    }/>
+                  )}
+                </div>
+              </>
+            )}
+
             <SectionLabel>Giorni per tipo</SectionLabel>
             {[s1,s2].map((w,wi)=>{
               const cnt=GIORNI_OPTIONS.reduce((a,g)=>({...a,[g]:w.filter(d=>d.giorno===g).length}),{});
@@ -1326,8 +1378,13 @@ function loadDiet() { try{const s=localStorage.getItem(DIET_KEY);return s?JSON.p
 function saveDiet(d) { try{localStorage.setItem(DIET_KEY,JSON.stringify(d));}catch{} }
 
 // ── Meal Option Selector ───────────────────────────────────────────────────────
-function MealOptionSelector({meal, selectedIdx, onSelect}) {
+function MealOptionSelector({meal, selectedIdx, grams, onSelect, onGramsChange}) {
   if(!meal || !meal.options || meal.options.length === 0) return null;
+  const selectedOpt = selectedIdx != null ? (meal.options[selectedIdx]?.label || meal.options[selectedIdx]) : null;
+  const selectedParsed = selectedOpt ? parseMealOption(selectedOpt) : null;
+  // Use user-provided grams if available, else fall back to parsed default
+  const gramsVal = grams != null && grams !== "" ? parseFloat(grams) : (selectedParsed?.grams || null);
+  const nutrition = selectedOpt && gramsVal ? calcKcal(selectedParsed?.food || selectedOpt.toLowerCase(), gramsVal) : null;
 
   return (
     <div style={{marginBottom:14}}>
@@ -1336,8 +1393,9 @@ function MealOptionSelector({meal, selectedIdx, onSelect}) {
       </div>
       <div style={{display:'flex',flexDirection:'column',gap:6}}>
         {meal.options.map((opt,i)=>{
-          const parsed = parseMealOption(opt.label||opt);
-          const nutrition = parsed.grams ? calcKcal(parsed.food, parsed.grams) : null;
+          const label = opt.label||opt;
+          // Strip leading grams from display label (show only food name)
+          const displayLabel = label.replace(/^\d+\s*gr?\s*/i,'').replace(/^\d+\s*uov[ae]\s*/i,'').trim();
           const isSelected = selectedIdx === i;
           return (
             <button key={i} onClick={()=>onSelect(i)} style={{
@@ -1347,41 +1405,62 @@ function MealOptionSelector({meal, selectedIdx, onSelect}) {
               textAlign:'left', transition:'all 0.15s',
               boxShadow:isSelected?`0 2px 8px ${G.green}22`:'none',
             }}>
-              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:8}}>
-                <div style={{flex:1}}>
-                  <div style={{fontSize:13,fontWeight:isSelected?700:500,color:isSelected?G.text:'#444',lineHeight:1.4}}>
-                    {isSelected && <span style={{color:G.green,marginRight:6}}>✓</span>}
-                    {opt.label||opt}
-                  </div>
-                  {opt.note && <div style={{fontSize:11,color:G.orange,marginTop:2}}>ℹ️ {opt.note}</div>}
-                </div>
-                {nutrition && (
-                  <div style={{textAlign:'right',flexShrink:0}}>
-                    <div style={{fontSize:13,fontWeight:800,color:isSelected?G.green:G.text3}}>{nutrition.kcal} kcal</div>
-                    <div style={{fontSize:10,color:G.text3}}>P{nutrition.p} C{nutrition.c} G{nutrition.g}</div>
-                  </div>
-                )}
+              <div style={{display:'flex',alignItems:'center',gap:8}}>
+                {isSelected && <span style={{color:G.green,fontSize:14,flexShrink:0}}>✓</span>}
+                <span style={{fontSize:13,fontWeight:isSelected?700:500,color:isSelected?G.text:'#444',flex:1,lineHeight:1.4}}>
+                  {displayLabel}
+                </span>
               </div>
+              {opt.note && <div style={{fontSize:11,color:G.orange,marginTop:2}}>ℹ️ {opt.note}</div>}
             </button>
           );
         })}
       </div>
+      {/* Grammi input + calorie — solo se c'è una selezione */}
+      {selectedIdx != null && (
+        <div style={{marginTop:10,display:'flex',gap:10,alignItems:'center',background:'#F1F8F1',borderRadius:10,padding:'10px 12px'}}>
+          <div style={{flex:1}}>
+            <div style={{fontSize:11,color:G.text3,fontWeight:700,marginBottom:4}}>Grammature (g)</div>
+            <input type="number" value={grams||""} onChange={e=>onGramsChange(e.target.value)}
+              placeholder={selectedParsed?.grams ? String(selectedParsed.grams) : "es. 150"}
+              style={{width:'100%',padding:'8px 10px',borderRadius:8,border:`1.5px solid ${G.green}44`,
+                fontSize:15,fontWeight:700,background:'#fff',color:G.text,outline:'none',
+                boxSizing:'border-box',textAlign:'center'}}/>
+          </div>
+          {nutrition && (
+            <div style={{textAlign:'right',flexShrink:0}}>
+              <div style={{fontSize:16,fontWeight:900,color:G.green}}>{nutrition.kcal} kcal</div>
+              <div style={{fontSize:10,color:G.text3}}>P{nutrition.p}g · C{nutrition.c}g · G{nutrition.g}g</div>
+            </div>
+          )}
+          {!nutrition && gramsVal && (
+            <div style={{fontSize:12,color:G.text3,flexShrink:0}}>Inserisci gr.</div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
 
 // ── Meal Summary ──────────────────────────────────────────────────────────────
-function MealSummary({meal, selections}) {
+function MealSummary({meal, selections, getSelIdxFn, getGramsFn}) {
   if(!meal || !meal.groups) return null;
   let totalKcal=0, totalP=0, totalC=0, totalG=0, hasData=false;
 
   meal.groups.forEach((group,gi)=>{
-    const selIdx = selections[gi];
+    const selIdx = getSelIdxFn ? getSelIdxFn(gi) : (() => {
+      const v = selections[gi]; if(v==null) return null;
+      return typeof v==='object' ? (v.sel??null) : v;
+    })();
     if(selIdx == null) return;
     const opt = group.options[selIdx];
     if(!opt) return;
     const parsed = parseMealOption(opt.label||opt);
-    const n = parsed.grams ? calcKcal(parsed.food, parsed.grams) : null;
+    const customGrams = getGramsFn ? getGramsFn(gi) : (() => {
+      const v = selections[gi]; return (v && typeof v==='object') ? (v.grams||"") : "";
+    })();
+    const gramsVal = customGrams !== "" ? parseFloat(customGrams) : parsed.grams;
+    const n = gramsVal ? calcKcal(parsed.food, gramsVal) : null;
     if(n) { totalKcal+=n.kcal; totalP+=n.p; totalC+=n.c; totalG+=n.g; hasData=true; }
   });
 
@@ -1408,7 +1487,7 @@ function MealSummary({meal, selections}) {
 }
 
 // ── Diet Day Builder ───────────────────────────────────────────────────────────
-function ScreenDieta({onBack}) {
+function ScreenDieta({onBack, cycles, onSaveKcal}) {
   const [diet, setDietState] = useState(()=>loadDiet());
 
   // Load static dieta.json on first mount if no diet in localStorage
@@ -1465,25 +1544,52 @@ function ScreenDieta({onBack}) {
   const selectMealOption = (mealIdx, groupIdx, optIdx) => {
     setMealSelections(prev=>({
       ...prev,
-      [mealIdx]: {...(prev[mealIdx]||{}), [groupIdx]: optIdx}
+      [mealIdx]: {
+        ...(prev[mealIdx]||{}),
+        [groupIdx]: {sel: optIdx, grams: (prev[mealIdx]||{})[groupIdx]?.grams || ""}
+      }
     }));
   };
+  const setMealGrams = (mealIdx, groupIdx, grams) => {
+    setMealSelections(prev=>({
+      ...prev,
+      [mealIdx]: {
+        ...(prev[mealIdx]||{}),
+        [groupIdx]: {sel: ((prev[mealIdx]||{})[groupIdx]?.sel ?? ((prev[mealIdx]||{})[groupIdx])), grams}
+      }
+    }));
+  };
+  // Helper to get selected index (handles old and new format)
+  const getSelIdx = (mealIdx, groupIdx) => {
+    const v = (mealSelections[mealIdx]||{})[groupIdx];
+    if(v == null) return null;
+    if(typeof v === 'object') return v.sel ?? null;
+    return v; // legacy number format
+  };
+  const getGrams = (mealIdx, groupIdx) => {
+    const v = (mealSelections[mealIdx]||{})[groupIdx];
+    if(v == null) return "";
+    if(typeof v === 'object') return v.grams || "";
+    return "";
+  };
 
-  // Compute day totals
+  // Compute day totals — 0 if nothing selected
   const dayTotals = (() => {
-    if(!selectedDayType || !diet) return null;
+    if(!selectedDayType || !diet) return {kcal:0,p:0,c:0,g:0};
     const day = diet.dayTypes.find(d=>d.id===selectedDayType);
-    if(!day) return null;
+    if(!day) return {kcal:0,p:0,c:0,g:0};
     let totalKcal=0, totalP=0, totalC=0, totalG=0;
     (day.meals||[]).forEach((meal,mi)=>{
-      const sels = mealSelections[mi]||{};
       (meal.groups||[]).forEach((group,gi)=>{
-        const selIdx = sels[gi];
+        const selIdx = getSelIdx(mi,gi);
         if(selIdx==null) return;
         const opt = group.options[selIdx];
         if(!opt) return;
         const parsed = parseMealOption(opt.label||opt);
-        const n = parsed.grams ? calcKcal(parsed.food, parsed.grams) : null;
+        // Use custom grams if provided, else parsed default
+        const customGrams = getGrams(mi,gi);
+        const gramsVal = customGrams !== "" ? parseFloat(customGrams) : parsed.grams;
+        const n = gramsVal ? calcKcal(parsed.food, gramsVal) : null;
         if(n){ totalKcal+=n.kcal; totalP+=n.p; totalC+=n.c; totalG+=n.g; }
       });
       if(meal.fixedKcal) totalKcal+=meal.fixedKcal;
@@ -1564,17 +1670,34 @@ function ScreenDieta({onBack}) {
     <div style={{minHeight:'100vh',background:G.bg}}>
       <NavBar title={selectedDay?.label||selectedDayType} onBack={()=>setSelectedDayType(null)}/>
 
-      {/* Day total bar */}
-      {dayTotals && dayTotals.kcal > 0 && (
-        <div style={{background:`linear-gradient(135deg,${G.green},${G.gl})`,padding:'12px 20px',
-          display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-          <div style={{fontSize:12,color:'rgba(255,255,255,0.8)',fontWeight:600}}>Totale giornata</div>
-          <div style={{display:'flex',gap:16,alignItems:'center'}}>
-            <div style={{fontSize:20,fontWeight:900,color:'#fff'}}>{dayTotals.kcal} kcal</div>
-            <div style={{fontSize:11,color:'rgba(255,255,255,0.8)'}}>
-              P{dayTotals.p}g · C{dayTotals.c}g · G{dayTotals.g}g
+      {/* Day total bar — always visible */}
+      {dayTotals && (
+        <div style={{background:`linear-gradient(135deg,${G.green},${G.gl})`,padding:'12px 20px'}}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:dayTotals.kcal>0?6:0}}>
+            <div style={{fontSize:12,color:'rgba(255,255,255,0.8)',fontWeight:600}}>Totale giornata</div>
+            <div style={{display:'flex',gap:16,alignItems:'center'}}>
+              <div style={{fontSize:20,fontWeight:900,color:'#fff'}}>{dayTotals.kcal} kcal</div>
+              <div style={{fontSize:11,color:'rgba(255,255,255,0.8)'}}>
+                P{dayTotals.p}g · C{dayTotals.c}g · G{dayTotals.g}g
+              </div>
             </div>
           </div>
+          {dayTotals.kcal>0 && onSaveKcal && cycles && cycles.length>0 && (()=>{
+            const today2 = todayStr();
+            const curCycle = cycles[cycles.length-1];
+            const todayInCycle = curCycle && !curCycle.exported && curCycle.days.some(d=>d.data===today2);
+            if(!todayInCycle) return null;
+            const alreadySaved = curCycle.days.find(d=>d.data===today2)?.kcalGiorno;
+            return (
+              <button onClick={()=>onSaveKcal(today2, dayTotals.kcal)}
+                style={{width:'100%',padding:'8px 12px',borderRadius:10,border:'none',
+                  background:'rgba(255,255,255,0.25)',color:'#fff',fontSize:13,
+                  fontWeight:700,cursor:'pointer',display:'flex',alignItems:'center',
+                  justifyContent:'center',gap:6}}>
+                {alreadySaved ? `✓ Salvato (${alreadySaved} kcal) · Aggiorna` : '💾 Salva calorie di oggi nel ciclo'}
+              </button>
+            );
+          })()}
         </div>
       )}
 
@@ -1590,8 +1713,10 @@ function ScreenDieta({onBack}) {
                 <MealOptionSelector
                   key={gi}
                   meal={group}
-                  selectedIdx={(mealSelections[mi]||{})[gi]}
+                  selectedIdx={getSelIdx(mi,gi)}
+                  grams={getGrams(mi,gi)}
                   onSelect={idx=>selectMealOption(mi,gi,idx)}
+                  onGramsChange={g=>setMealGrams(mi,gi,g)}
                 />
               ))}
               <MealSummary meal={meal} selections={mealSelections[mi]||{}}/>
@@ -2112,6 +2237,94 @@ function ScreenGrafico({cycles,onBack}) {
           );
         })()}
 
+        {/* Calorie chart */}
+        {(()=>{
+          const kcalPoints = [];
+          cycles.forEach(c => c.days.forEach(d => {
+            const k = parseInt(d.kcalGiorno);
+            if(!isNaN(k) && k > 0) {
+              const dt = dateFromStr(d.data);
+              if(dt && dt >= windowStart && dt <= windowEnd)
+                kcalPoints.push({date:dt, dateStr:d.data, kcal:k, giorno:d.giorno});
+            }
+          }));
+          if(kcalPoints.length === 0) return null;
+          kcalPoints.sort((a,b)=>a.date-b.date);
+
+          const tMin2=windowStart.getTime(), tMax2=windowEnd.getTime(), tRng2=tMax2-tMin2||1;
+          const toXk = d => PL + ((d.getTime()-tMin2)/tRng2)*cW;
+          const KH=90, KPT=10, KPB=20;
+          const cHk=KH-KPT-KPB;
+          const kVals = kcalPoints.map(p=>p.kcal);
+          const minK = Math.max(0, Math.floor(Math.min(...kVals)/100)*100 - 100);
+          const maxK = Math.ceil(Math.max(...kVals)/100)*100 + 100;
+          const rngK = maxK-minK||500;
+          const toYk = v => KPT + cHk - ((v-minK)/rngK)*cHk;
+
+          // Bar width relative to number of points
+          const barW = Math.max(4, Math.min(18, cW / Math.max(kcalPoints.length*1.5, 1)));
+
+          // Average line
+          const avgK = Math.round(kVals.reduce((a,b)=>a+b,0)/kVals.length);
+
+          return (
+            <Card style={{padding:'14px 14px',marginBottom:14}}>
+              <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10}}>
+                <div style={{fontSize:13,fontWeight:800,color:G.text}}>🔥 Calorie giornaliere</div>
+                <div style={{fontSize:12,fontWeight:700,color:G.orange}}>Media: {avgK} kcal</div>
+              </div>
+              <svg width="100%" viewBox={`0 0 ${W} ${KH}`} style={{overflow:'visible'}}>
+                <defs>
+                  <linearGradient id="kcalGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor={G.orange} stopOpacity="0.9"/>
+                    <stop offset="100%" stopColor={G.orange} stopOpacity="0.5"/>
+                  </linearGradient>
+                </defs>
+                {/* Y grid */}
+                {[minK, Math.round((minK+maxK)/2), maxK].map((v,i)=>(
+                  <g key={i}>
+                    <line x1={PL} y1={toYk(v)} x2={W-PR} y2={toYk(v)} stroke={G.border} strokeWidth="1" strokeDasharray="2,3"/>
+                    <text x={PL-4} y={toYk(v)+3} textAnchor="end" fontSize="7" fill={G.text3}>
+                      {v>=1000?(v/1000).toFixed(1)+'k':v}
+                    </text>
+                  </g>
+                ))}
+                {/* Average line */}
+                <line x1={PL} y1={toYk(avgK)} x2={W-PR} y2={toYk(avgK)}
+                  stroke={G.orange} strokeWidth="1" strokeDasharray="4,3" opacity="0.6"/>
+                {/* Bars */}
+                {kcalPoints.map((p,i)=>{
+                  const x = toXk(p.date);
+                  const y = toYk(p.kcal);
+                  const barH = Math.max(2, (KPT+cHk) - y);
+                  const gc = p.giorno==='ok'?G.ok:p.giorno==='cheat'?G.cheat:G.free;
+                  return <g key={i}>
+                    <rect x={x-barW/2} y={y} width={barW} height={barH}
+                      rx="2" fill="url(#kcalGrad)" opacity="0.85"/>
+                    {/* Bottom dot colored by day type */}
+                    <circle cx={x} cy={KPT+cHk} r="3" fill={gc} opacity="0.8"/>
+                    {/* Value above bar */}
+                    {kcalPoints.length<=10&&(
+                      <text x={x} y={y-3} textAnchor="middle" fontSize="7" fill={G.orange} fontWeight="700">
+                        {p.kcal}
+                      </text>
+                    )}
+                    <text x={x} y={KH-2} textAnchor="middle" fontSize="6.5" fill={G.text3}>
+                      {p.dateStr.slice(0,5)}
+                    </text>
+                  </g>;
+                })}
+              </svg>
+              {/* Stats */}
+              <div style={{display:'flex',gap:8,marginTop:8}}>
+                <Pill label="Min" value={Math.min(...kVals)} unit="kcal" color={G.green}/>
+                <Pill label="Media" value={avgK} unit="kcal" color={G.orange}/>
+                <Pill label="Max" value={Math.max(...kVals)} unit="kcal" color={G.text3}/>
+              </div>
+            </Card>
+          );
+        })()}
+
         <SectionLabel>Misurazioni ({points.length})</SectionLabel>
         {points.length===0&&(
           <Card style={{textAlign:'center',padding:'20px',color:G.text3}}>
@@ -2276,26 +2489,40 @@ function App() {
   };
   const handleChiudiCiclo=()=>{
     setCycles(prev=>{
-      // Only close — do NOT create new cycle yet (user must generate report first)
-      // Do NOT trim days — keep all 14 days as-is (user may not have entered all pesos)
       return prev.map((c,i)=>{
         if(i!==prev.length-1) return c;
         const half = Math.ceil(c.days.length/2);
         const hasTwoWeeks = c.days.length >= 7;
         const m1 = avg(c.days.slice(0,half).filter(d=>d.peso));
         const m2 = hasTwoWeeks ? avg(c.days.slice(half).filter(d=>d.peso)) : null;
+        // Media bagno volte (floor) — solo giorni con valore inserito
+        const bagnoVals = c.days.map(d=>parseInt(d.bagnoVolte)).filter(v=>!isNaN(v)&&v>=0);
+        const mediaBagno = bagnoVals.length ? Math.floor(bagnoVals.reduce((a,b)=>a+b,0)/bagnoVals.length) : null;
+        // Media feci tipo (floor) — solo giorni con valore inserito
+        const feciVals = c.days.map(d=>parseInt(d.feciTipo)).filter(v=>!isNaN(v)&&v>=1&&v<=7);
+        const mediaFeci = feciVals.length ? Math.floor(feciVals.reduce((a,b)=>a+b,0)/feciVals.length) : null;
         return {
           ...c,
           exported: true,
-          completed: false, // stays false until feedback+report done
+          completed: false,
           mediaS1: m1 ? String(m1) : "",
           mediaS2: m2 ? String(m2) : "",
+          mediaBagnoVolte: mediaBagno !== null ? String(mediaBagno) : "",
+          mediaFeciTipo: mediaFeci !== null ? String(mediaFeci) : "",
         };
       });
     });
   };
   const handleSavePassi=(s1,s2)=>{
     setCycles(p=>p.map((c,i)=>i===p.length-1?{...c,mediaPassiSett1:s1,mediaPassiSett2:s2}:c));
+  };
+  const handleSaveKcal=(dateStr,kcal)=>{
+    // Save kcal for a specific date in the current cycle
+    setCycles(p=>p.map((c,i)=>{
+      if(i!==p.length-1) return c;
+      const newDays = c.days.map(d=>d.data===dateStr?{...d,kcalGiorno:kcal}:d);
+      return {...c,days:newDays};
+    }));
   };
   const handleOpenDay=idx=>{setActiveDayIdx(idx);setScreen("day");};
   const handleSaveDay=d=>{
@@ -2395,7 +2622,7 @@ function App() {
 
   if(showProssimaVisita)
     return <ScreenProssimaVisita ultimaVisita={ultimaVisitaChiusa} onSave={handleProssimaVisita}/>;
-  if(screen==="dieta") return <ScreenDieta onBack={()=>setScreen("dashboard")}/>;
+  if(screen==="dieta") return <ScreenDieta onBack={()=>setScreen("dashboard")} cycles={cycles} onSaveKcal={handleSaveKcal}/>;
 
   if(!profile&&screen!=="import"&&screen!=="setup_completion")
     return <ScreenSetup onDone={handleSetup} onImport={()=>setScreen("import")}/>;
