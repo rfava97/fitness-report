@@ -1559,32 +1559,16 @@ const KCAL_DB = {
 
 
 function calcKcal(food, grams) {
-  const f = food.toLowerCase().trim()
-    .replace(/\s+/g,' ')
-    .replace(/[><=]/g,'')
-    .trim();
+  const f = food.toLowerCase().trim().replace(/  +/g,' ');
   const keys = Object.keys(KCAL_DB);
-  // 1. Exact match
-  let key = keys.find(k => k === f);
-  // 2. Exact match after stripping trailing qualifiers (e.g. "frutta di stagione" → "frutta")
-  if(!key) key = keys.find(k => f === k || f.startsWith(k) && (f[k.length]===' '||f[k.length]===undefined));
-  // 3. Food includes DB key as whole phrase (prevent "frutta" matching "frutta secca")
-  if(!key) key = keys.find(k => k.length >= 5 && f.includes(k) && !keys.some(k2=>k2.length>k.length&&f.includes(k2)));
-  // 4. First word match as fallback
-  if(!key) {
-    const firstWord = f.split(' ')[0];
-    key = keys.find(k => k === firstWord);
-  }
+  let key = keys.find(function(k){ return k === f; });
+  if(!key) key = keys.find(function(k){ return f === k || (f.length > k.length && f.indexOf(k)===0 && f[k.length]===' '); });
+  if(!key) key = keys.find(function(k){ return k.length >= 5 && f.indexOf(k) >= 0 && !keys.some(function(k2){ return k2.length>k.length && f.indexOf(k2)>=0; }); });
+  if(!key) { const fw = f.split(' ')[0]; key = keys.find(function(k){ return k === fw; }); }
   if(!key || !grams) return null;
   const db = KCAL_DB[key];
   const factor = grams/100;
-  return {
-    kcal: Math.round(db.k * factor),
-    p: Math.round(db.p * factor * 10)/10,
-    c: Math.round(db.c * factor * 10)/10,
-    g: Math.round(db.g * factor * 10)/10,
-    key
-  };
+  return { kcal:Math.round(db.k*factor), p:Math.round(db.p*factor*10)/10, c:Math.round(db.c*factor*10)/10, g:Math.round(db.g*factor*10)/10, key:key };
 }
 
 // Parse a meal option string like "200 gr YOGURT GRECO 0%" into {grams, food, label}
@@ -1607,15 +1591,14 @@ function parseMealOption(str) {
 function parseComponents(label) {
   const parts = [];
   const segs = label.split('+');
-  for(const seg of segs) {
+  segs.forEach(function(seg) {
     const s = seg.trim();
-    const m1 = s.match(/^(\d+)\s*(?:ml|gr?)\s+(.+)$/i);
-    if(m1) { parts.push({grams:parseInt(m1[1]), food:m1[2].toLowerCase().trim()}); continue; }
+    const m1 = s.match(/^(\d+)\s*(ml|gr|g)\s+(.+)$/i);
+    if(m1) { parts.push({grams:parseInt(m1[1]), food:m1[3].toLowerCase().trim()}); return; }
     const m2 = s.match(/^(\d+)\s+(uov[ao])\s*(.*)$/i);
-    if(m2) { parts.push({grams:parseInt(m2[1])*60, food:'uova '+m2[3].toLowerCase().trim()}); continue; }
-    // Items without quantity (e.g. "miele o marmellata", "verdura libera")
-    if(s && !/^\d/.test(s)) parts.push({grams:null, food:s.toLowerCase()});
-  }
+    if(m2) { parts.push({grams:parseInt(m2[1])*60, food:('uova '+m2[3]).toLowerCase().trim()}); return; }
+    if(s && s.length>2 && !/^[0-9]/.test(s)) parts.push({grams:null, food:s.toLowerCase()});
+  });
   return parts;
 }
 
@@ -1625,11 +1608,11 @@ function calcMulti(label) {
   if(parts.length === 0) return null;
   let total = {kcal:0, p:0, c:0, g:0};
   let hasAny = false;
-  for(const part of parts) {
-    if(!part.grams) continue;
+  parts.forEach(function(part) {
+    if(!part.grams) return;
     const n = calcKcal(part.food, part.grams);
     if(n) { total.kcal+=n.kcal; total.p+=n.p; total.c+=n.c; total.g+=n.g; hasAny=true; }
-  }
+  });
   if(!hasAny) return null;
   return {kcal:Math.round(total.kcal), p:Math.round(total.p*10)/10, c:Math.round(total.c*10)/10, g:Math.round(total.g*10)/10};
 }
