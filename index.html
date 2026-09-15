@@ -20,7 +20,7 @@ body{
 input,select,textarea,button{font-family:inherit;}
 input[type=number]::-webkit-inner-spin-button{opacity:1;}
 ::placeholder{color:rgba(255,255,255,0.28);}
-.safe-top{padding-top:env(safe-area-inset-top,0px);}
+.safe-top{padding-top:env(safe-area-inset-top,20px)!important;}
 .cal-strip{display:flex;gap:6px;overflow-x:auto;padding:4px 2px 8px;scrollbar-width:none;-ms-overflow-style:none;}
 .cal-strip::-webkit-scrollbar{display:none;}
 @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
@@ -144,7 +144,7 @@ const Icon = ({name, size=20, color="currentColor", strokeWidth=1.8}) => {
     chevronL:   <svg style={s} viewBox="0 0 24 24" fill="none"><polyline points="15,18 9,12 15,6" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round"/></svg>,
     chevronD:   <svg style={s} viewBox="0 0 24 24" fill="none"><polyline points="6,9 12,15 18,9" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round"/></svg>,
     flame:      <svg style={s} viewBox="0 0 24 24" fill="none"><path d="M12 2c0 0-4 5-4 10a4 4 0 008 0c0-1.5-.5-3-1-4 0 0-1 2-2 2-1 0-2-1-2-2 0-2 1-4 1-6z" stroke={color} strokeWidth={strokeWidth} strokeLinejoin="round"/></svg>,
-    scale:      <svg style={s} viewBox="0 0 24 24" fill="none"><path d="M12 3v18M3 8l9-5 9 5M5 19h14" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round"/><path d="M3 8c0 2.2 1.8 4 4 4s4-1.8 4-4M17 8c0 2.2-1.8 4-4 4" stroke={color} strokeWidth={strokeWidth}/></svg>,
+    scale:      <svg style={s} viewBox="0 0 24 24" fill="none"><path d="M3 6.5h3M3 6.5c0-1.1.9-2 2-2h1a2 2 0 012 2v11a2 2 0 01-2 2H5a2 2 0 01-2-2v-11zM21 6.5h-3M21 6.5c0-1.1-.9-2-2-2h-1a2 2 0 00-2 2v11a2 2 0 002 2h1a2 2 0 002-2v-11z" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round"/><line x1="6" y1="9" x2="18" y2="9" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round"/><line x1="6" y1="12" x2="18" y2="12" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round"/></svg>,
     walk:       <svg style={s} viewBox="0 0 24 24" fill="none"><circle cx="12" cy="4" r="1.5" fill={color}/><path d="M9 8l3 2 3-2m-3 2v5m-2 1l-2 5m7-5l2 5" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round"/></svg>,
     calendar:   <svg style={s} viewBox="0 0 24 24" fill="none"><rect x="3" y="4" width="18" height="18" rx="2" stroke={color} strokeWidth={strokeWidth}/><line x1="3" y1="10" x2="21" y2="10" stroke={color} strokeWidth={strokeWidth}/><line x1="8" y1="2" x2="8" y2="6" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round"/><line x1="16" y1="2" x2="16" y2="6" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round"/></svg>,
     stethoscope:<svg style={s} viewBox="0 0 24 24" fill="none"><path d="M4.5 6.5A4 4 0 008 10.5c1.5 0 2.8-.8 3.5-2" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round"/><path d="M11.5 8.5V16a4 4 0 008 0v-2" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round"/><circle cx="19.5" cy="14" r="1.5" fill={color}/><line x1="4.5" y1="6.5" x2="4.5" y2="3" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round"/><line x1="8" y1="6.5" x2="8" y2="3" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round"/></svg>,
@@ -698,9 +698,10 @@ function ScreenDashboard({profile,cycles,onOpenDay,onOpenFeedback,onNewCycle,onO
     <div style={{minHeight:'100vh',background:G.bg,paddingBottom:TAB_H+20}}>
 
       {/* ── Hero ────────────────────────────────────────────────────── */}
-      <div className="safe-top" style={{
+      <div style={{
         background:'linear-gradient(160deg,#0B1E14 0%,#0D2A1A 50%,#0A1810 100%)',
-        padding:'20px 20px 24px',
+        paddingTop:'calc(env(safe-area-inset-top, 20px) + 20px)',
+        paddingLeft:20, paddingRight:20, paddingBottom:24,
         borderBottom:'1px solid rgba(0,200,150,0.12)',
       }}>
         {/* Top row */}
@@ -748,8 +749,17 @@ function ScreenDashboard({profile,cycles,onOpenDay,onOpenFeedback,onNewCycle,onO
                 width:44,height:44,borderRadius:13,
                 background:todayDay?.peso?'rgba(0,200,150,0.15)':'rgba(0,0,0,0.15)',
                 display:'flex',alignItems:'center',justifyContent:'center',
+                flexShrink:0,
               }}>
-                <Icon name="scale" size={22} color={todayDay?.peso?'#00C896':'#000'}/>
+                {todayDay?.peso
+                  ? <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                      <polyline points="20,6 9,17 4,12" stroke="#00C896" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                  : <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                      <line x1="12" y1="5" x2="12" y2="19" stroke="#000" strokeWidth="2" strokeLinecap="round"/>
+                      <line x1="5" y1="12" x2="19" y2="12" stroke="#000" strokeWidth="2" strokeLinecap="round"/>
+                    </svg>
+                }
               </div>
               <div style={{textAlign:'left'}}>
                 <div style={{fontSize:17,fontWeight:800,letterSpacing:-0.3,color:todayDay?.peso?'rgba(255,255,255,0.92)':'#000'}}>
@@ -1455,88 +1465,116 @@ function ScreenProfilo({profile,onSave,onBack}) {
 
 // ── Nutritional DB (kcal, protein, carbs, fat per 100g/100ml) ─────────────────
 const KCAL_DB = {
-  "yogurt greco 0%":{"k":57,"p":10.0,"c":3.6,"g":0.2},
-  "albume":{"k":52,"p":10.9,"c":0.7,"g":0.2},
-  "whey isolate":{"k":371,"p":90.0,"c":3.5,"g":1.0},
-  "whey protein isolate":{"k":371,"p":90.0,"c":3.5,"g":1.0},
-  "latte":{"k":46,"p":3.3,"c":4.9,"g":1.5},
-  "budino proteico milkpro":{"k":95,"p":20.0,"c":3.5,"g":0.9},
-  "fiocchi di mais":{"k":368,"p":7.0,"c":83.6,"g":0.8},
-  "farina di riso":{"k":351,"p":6.5,"c":80.4,"g":0.5},
-  "farina avena":{"k":375,"p":13.2,"c":66.2,"g":6.9},
-  "pane":{"k":275,"p":8.1,"c":56.8,"g":0.5},
-  "pane integrale":{"k":224,"p":7.5,"c":46.2,"g":1.3},
-  "fette biscottate":{"k":410,"p":9.5,"c":74.7,"g":9.1},
-  "gallette":{"k":381,"p":8.0,"c":83.0,"g":1.0},
-  "cereali":{"k":353,"p":11.0,"c":72.9,"g":1.1},
-  "patate lesse":{"k":79,"p":2.1,"c":17.0,"g":0.1},
-  "gnocchi di patate":{"k":130,"p":2.8,"c":28.6,"g":0.3},
-  "legumi cotti":{"k":116,"p":7.7,"c":20.0,"g":0.5},
-  "oro saiwa plasmon":{"k":435,"p":8.5,"c":75.0,"g":12.0},
-  "carne magra":{"k":103,"p":22.3,"c":0.0,"g":1.2},
-  "uova":{"k":128,"p":12.4,"c":0.5,"g":8.7},
-  "pesce magro":{"k":82,"p":18.0,"c":0.0,"g":0.9},
-  "pesce semigrasso":{"k":121,"p":20.0,"c":0.0,"g":4.3},
-  "pesce grasso":{"k":185,"p":18.4,"c":0.0,"g":12.0},
-  "fiocchi di latte":{"k":98,"p":11.0,"c":3.3,"g":4.3},
-  "salmone affumicato":{"k":142,"p":20.5,"c":0.0,"g":6.8},
-  "philadelphia protein":{"k":140,"p":11.0,"c":4.0,"g":9.0},
-  "mozzarella protein":{"k":105,"p":17.0,"c":4.0,"g":2.0},
-  "tofu":{"k":76,"p":8.1,"c":1.9,"g":4.8},
-  "tempeh":{"k":192,"p":20.3,"c":7.6,"g":10.8},
-  "frutta secca":{"k":620,"p":17.0,"c":9.0,"g":57.0},
-  "burro frutta secca":{"k":598,"p":25.0,"c":20.0,"g":50.0},
-  "cioccolata fondente":{"k":598,"p":8.5,"c":15.0,"g":53.0},
-  "olio evo":{"k":899,"p":0.0,"c":0.0,"g":99.9},
-  "olio di cocco":{"k":892,"p":0.0,"c":0.0,"g":99.1},
-  "frutta":{"k":52,"p":0.3,"c":12.5,"g":0.1},
-  "mela":{"k":52,"p":0.3,"c":13.8,"g":0.2},
-  "pera":{"k":57,"p":0.4,"c":15.2,"g":0.1},
-  "banana":{"k":89,"p":1.1,"c":22.8,"g":0.3},
-  "arancia":{"k":47,"p":0.9,"c":11.8,"g":0.1},
-  "mandarino":{"k":53,"p":0.8,"c":13.3,"g":0.2},
-  "fragola":{"k":33,"p":0.7,"c":7.7,"g":0.3},
-  "pesca":{"k":39,"p":0.9,"c":9.5,"g":0.3},
-  "albicocca":{"k":48,"p":1.4,"c":11.1,"g":0.4},
-  "uva":{"k":69,"p":0.7,"c":18.1,"g":0.2},
-  "anguria":{"k":30,"p":0.6,"c":7.6,"g":0.2},
-  "melone":{"k":34,"p":0.8,"c":8.2,"g":0.2},
-  "kiwi":{"k":61,"p":1.1,"c":14.7,"g":0.5},
-  "ciliegie":{"k":63,"p":1.1,"c":16.0,"g":0.2},
-  "susina":{"k":46,"p":0.7,"c":11.4,"g":0.3},
-  "fico":{"k":74,"p":0.8,"c":19.2,"g":0.3},
-  "melograno":{"k":68,"p":1.0,"c":17.2,"g":1.2},
-  "lampone":{"k":52,"p":1.2,"c":11.9,"g":0.6},
-  "mirtillo":{"k":57,"p":0.7,"c":14.5,"g":0.3},
-  "papaya":{"k":43,"p":0.5,"c":11.1,"g":0.1},
-  "pompelmo":{"k":42,"p":0.8,"c":10.6,"g":0.1},
-  "limone":{"k":29,"p":1.1,"c":6.5,"g":0.3},
-  "ananas":{"k":50,"p":0.5,"c":13.1,"g":0.1},
-  "pesca noce":{"k":44,"p":1.0,"c":10.7,"g":0.3},
-  "mango":{"k":60,"p":0.8,"c":15.0,"g":0.4},
-  "avocado":{"k":160,"p":2.0,"c":8.5,"g":14.7},
-  "cocco":{"k":354,"p":3.3,"c":15.2,"g":33.5},
-  "marmellata":{"k":241,"p":0.4,"c":61.5,"g":0.1},
-  "miele":{"k":304,"p":0.3,"c":80.3,"g":0.0},
-  "maltodestrine":{"k":380,"p":0.0,"c":95.0,"g":0.0},
-  "eaa":{"k":400,"p":90.0,"c":5.0,"g":0.0},
-  "creatina":{"k":0,"p":0.0,"c":0.0,"g":0.0},
+  // ── Proteine ───────────────────────────────────────────────────────────────
+  "yogurt greco 0%":       {"k":57,  "p":10.0,"c":3.6, "g":0.2},
+  "albume":                {"k":52,  "p":10.9,"c":0.7, "g":0.2},
+  "budino proteico milkpro":{"k":105,"p":18.0,"c":5.0, "g":1.5},
+  "latte":                 {"k":64,  "p":3.3, "c":4.8, "g":3.6},
+  "whey isolate":          {"k":370, "p":85.0,"c":5.0, "g":1.0},
+  "whey protein isolate":  {"k":370, "p":85.0,"c":5.0, "g":1.0},
+  "carne magra":           {"k":105, "p":22.0,"c":0.0, "g":2.0},
+  "uova":                  {"k":155, "p":13.0,"c":1.1, "g":11.0},
+  "pesce magro":           {"k":82,  "p":17.0,"c":0.0, "g":1.5},
+  "pesce semigrasso":      {"k":130, "p":20.0,"c":0.0, "g":5.5},
+  "pesce grasso":          {"k":180, "p":19.0,"c":0.0, "g":11.0},
+  "fiocchi di latte":      {"k":103, "p":11.5,"c":3.5, "g":4.5},
+  "tofu":                  {"k":76,  "p":8.0, "c":1.9, "g":4.2},
+  "tempeh":                {"k":193, "p":19.0,"c":9.0, "g":11.0},
+  "mozzarella protein":    {"k":112, "p":21.0,"c":2.0, "g":2.5},
+  "salmone affumicato":    {"k":142, "p":20.0,"c":0.0, "g":7.0},
+  "philadelphia protein":  {"k":105, "p":8.0, "c":4.5, "g":6.0},
+  // ── Carboidrati ────────────────────────────────────────────────────────────
+  "fiocchi di mais":       {"k":370, "p":7.0, "c":82.0,"g":1.0},
+  "farina di riso":        {"k":355, "p":7.3, "c":79.0,"g":0.5},
+  "farina di riso / avena":{"k":355, "p":7.3, "c":79.0,"g":0.5},
+  "pane":                  {"k":275, "p":9.0, "c":55.0,"g":1.5},
+  "pane non integrale":    {"k":275, "p":9.0, "c":55.0,"g":1.5},
+  "fette biscottate":      {"k":410, "p":9.5, "c":79.0,"g":5.5},
+  "fette biscottate o gallette":{"k":375,"p":9.0,"c":76.0,"g":3.0},
+  "fette biscottate o gallette non integrali":{"k":410,"p":9.5,"c":79.0,"g":5.5},
+  "gallette":              {"k":387, "p":8.0, "c":82.0,"g":1.5},
+  "gallette / fette biscottate":{"k":387,"p":8.0,"c":80.0,"g":2.5},
+  "cereali":               {"k":370, "p":10.0,"c":76.0,"g":2.5},
+  "patate lesse":          {"k":80,  "p":2.0, "c":17.5,"g":0.1},
+  "gnocchi di patate":     {"k":130, "p":2.8, "c":27.0,"g":0.5},
+  "legumi cotti":          {"k":116, "p":7.7, "c":20.0,"g":0.5},
+  "maltodestrine":         {"k":375, "p":0.0, "c":93.8,"g":0.0},
+  "oro saiwa o plasmon":   {"k":445, "p":9.0, "c":72.0,"g":14.0},
+  "miele":                 {"k":304, "p":0.3, "c":80.0,"g":0.0},
+  "marmellata":            {"k":220, "p":0.5, "c":55.0,"g":0.0},
+  // ── Grassi ─────────────────────────────────────────────────────────────────
+  "frutta secca":          {"k":620, "p":17.0,"c":9.0, "g":57.0},
+  "burro frutta secca":    {"k":598, "p":25.0,"c":20.0,"g":50.0},
+  "frutta secca / burro di frutta secca":{"k":609,"p":21.0,"c":14.5,"g":53.5},
+  "cioccolata fondente":   {"k":546, "p":5.0, "c":50.0,"g":35.0},
+  "olio evo":              {"k":899, "p":0.0, "c":0.0, "g":99.9},
+  "olio di cocco":         {"k":892, "p":0.0, "c":0.0, "g":99.1},
+  // ── Integratori ────────────────────────────────────────────────────────────
+  "eaa":                   {"k":400, "p":90.0,"c":5.0, "g":0.0},
+  "creatina":              {"k":0,   "p":0.0, "c":0.0, "g":0.0},
+  // ── Frutta (kcal per 100g) ─────────────────────────────────────────────────
+  "frutta":                {"k":52,  "p":0.3, "c":12.5,"g":0.1},
+  "mela":                  {"k":52,  "p":0.3, "c":13.8,"g":0.2},
+  "mela golden":           {"k":54,  "p":0.3, "c":14.2,"g":0.2},
+  "mela fuji":             {"k":52,  "p":0.3, "c":13.8,"g":0.2},
+  "pera":                  {"k":57,  "p":0.4, "c":15.2,"g":0.1},
+  "pera williams":         {"k":58,  "p":0.4, "c":15.5,"g":0.1},
+  "banana":                {"k":89,  "p":1.1, "c":22.8,"g":0.3},
+  "arancia":               {"k":47,  "p":0.9, "c":11.8,"g":0.1},
+  "clementina":            {"k":47,  "p":0.9, "c":12.0,"g":0.1},
+  "mandarino":             {"k":53,  "p":0.8, "c":13.3,"g":0.2},
+  "pompelmo":              {"k":42,  "p":0.8, "c":10.6,"g":0.1},
+  "limone":                {"k":29,  "p":1.1, "c":6.5, "g":0.3},
+  "fragola":               {"k":33,  "p":0.7, "c":7.7, "g":0.3},
+  "fragoline":             {"k":31,  "p":0.7, "c":7.2, "g":0.3},
+  "pesca":                 {"k":39,  "p":0.9, "c":9.5, "g":0.3},
+  "pesca noce":            {"k":44,  "p":1.0, "c":10.7,"g":0.3},
+  "albicocca":             {"k":48,  "p":1.4, "c":11.1,"g":0.4},
+  "uva":                   {"k":69,  "p":0.7, "c":18.1,"g":0.2},
+  "uva bianca":            {"k":67,  "p":0.7, "c":17.5,"g":0.2},
+  "uva nera":              {"k":69,  "p":0.7, "c":18.1,"g":0.2},
+  "anguria":               {"k":30,  "p":0.6, "c":7.6, "g":0.2},
+  "melone":                {"k":34,  "p":0.8, "c":8.2, "g":0.2},
+  "melone cantalupo":      {"k":34,  "p":0.8, "c":8.2, "g":0.2},
+  "kiwi":                  {"k":61,  "p":1.1, "c":14.7,"g":0.5},
+  "ciliegie":              {"k":63,  "p":1.1, "c":16.0,"g":0.2},
+  "susina":                {"k":46,  "p":0.7, "c":11.4,"g":0.3},
+  "fico":                  {"k":74,  "p":0.8, "c":19.2,"g":0.3},
+  "fico d'india":          {"k":41,  "p":0.7, "c":9.6, "g":0.1},
+  "melograno":             {"k":68,  "p":1.0, "c":17.2,"g":1.2},
+  "lampone":               {"k":52,  "p":1.2, "c":11.9,"g":0.6},
+  "mirtillo":              {"k":57,  "p":0.7, "c":14.5,"g":0.3},
+  "mora":                  {"k":43,  "p":1.4, "c":9.6, "g":0.5},
+  "ribes":                 {"k":56,  "p":1.4, "c":13.8,"g":0.2},
+  "papaya":                {"k":43,  "p":0.5, "c":11.1,"g":0.1},
+  "mango":                 {"k":60,  "p":0.8, "c":15.0,"g":0.4},
+  "ananas":                {"k":50,  "p":0.5, "c":13.1,"g":0.1},
+  "cocco":                 {"k":354, "p":3.3, "c":15.2,"g":33.5},
+  "avocado":               {"k":160, "p":2.0, "c":8.5, "g":14.7},
+  "dattero":               {"k":277, "p":1.8, "c":74.0,"g":0.2},
+  "prugna secca":          {"k":240, "p":2.2, "c":63.0,"g":0.4},
+  "albicocca secca":       {"k":238, "p":3.4, "c":62.0,"g":0.5},
 };
 
+
+
 function calcKcal(food, grams) {
-  const f = food.toLowerCase().trim();
+  const f = food.toLowerCase().trim()
+    .replace(/\s+/g,' ')
+    .replace(/[><=]/g,'')
+    .trim();
   const keys = Object.keys(KCAL_DB);
   // 1. Exact match
   let key = keys.find(k => k === f);
-  // 2. Food starts with DB key (e.g. "frutta di stagione" starts with "frutta")
-  if(!key) key = keys.find(k => f.startsWith(k+' ') || f === k);
-  // 3. DB key starts with food first word (avoid "frutta" matching "frutta secca")
+  // 2. Exact match after stripping trailing qualifiers (e.g. "frutta di stagione" → "frutta")
+  if(!key) key = keys.find(k => f === k || f.startsWith(k) && (f[k.length]===' '||f[k.length]===undefined));
+  // 3. Food includes DB key as whole phrase (prevent "frutta" matching "frutta secca")
+  if(!key) key = keys.find(k => k.length >= 5 && f.includes(k) && !keys.some(k2=>k2.length>k.length&&f.includes(k2)));
+  // 4. First word match as fallback
   if(!key) {
     const firstWord = f.split(' ')[0];
-    key = keys.find(k => k.startsWith(firstWord+' ') || k === firstWord);
+    key = keys.find(k => k === firstWord);
   }
-  // 4. Food includes DB key (multi-word match)
-  if(!key) key = keys.find(k => k.length > 4 && f.includes(k));
   if(!key || !grams) return null;
   const db = KCAL_DB[key];
   const factor = grams/100;
@@ -1552,9 +1590,8 @@ function calcKcal(food, grams) {
 // Parse a meal option string like "200 gr YOGURT GRECO 0%" into {grams, food, label}
 function parseMealOption(str) {
   str = str.trim();
-  const m = str.match(/^(\d+)\s*gr?\s+(.+)$/i);
+  const m = str.match(/^(\d+)\s*(?:ml|gr?)\s+(.+)$/i);
   if(m) return {grams: parseInt(m[1]), food: m[2].toLowerCase(), label: str};
-  // Handle "X uova" or "X cucchiai"
   const m2 = str.match(/^(\d+)\s+(uov[ao]|cucchiai?|tazza|bicchiere)\s*(.*)$/i);
   if(m2) {
     const unit = m2[2].toLowerCase();
@@ -1566,6 +1603,48 @@ function parseMealOption(str) {
   return {grams: null, food: str.toLowerCase(), label: str};
 }
 
+// Parse multi-component labels like "150 gr LEGUMI COTTI + 60 gr PANE"
+function parseComponents(label) {
+  const parts = [];
+  const segs = label.split('+');
+  for(const seg of segs) {
+    const s = seg.trim();
+    const m1 = s.match(/^(\d+)\s*(?:ml|gr?)\s+(.+)$/i);
+    if(m1) { parts.push({grams:parseInt(m1[1]), food:m1[2].toLowerCase().trim()}); continue; }
+    const m2 = s.match(/^(\d+)\s+(uov[ao])\s*(.*)$/i);
+    if(m2) { parts.push({grams:parseInt(m2[1])*60, food:'uova '+m2[3].toLowerCase().trim()}); continue; }
+    // Items without quantity (e.g. "miele o marmellata", "verdura libera")
+    if(s && !/^\d/.test(s)) parts.push({grams:null, food:s.toLowerCase()});
+  }
+  return parts;
+}
+
+// Compute total nutrition for a multi-component label
+function calcMulti(label) {
+  const parts = parseComponents(label);
+  if(parts.length === 0) return null;
+  let total = {kcal:0, p:0, c:0, g:0};
+  let hasAny = false;
+  for(const part of parts) {
+    if(!part.grams) continue;
+    const n = calcKcal(part.food, part.grams);
+    if(n) { total.kcal+=n.kcal; total.p+=n.p; total.c+=n.c; total.g+=n.g; hasAny=true; }
+  }
+  if(!hasAny) return null;
+  return {kcal:Math.round(total.kcal), p:Math.round(total.p*10)/10, c:Math.round(total.c*10)/10, g:Math.round(total.g*10)/10};
+}
+
+// Check if a label contains legumi (provides protein, affects protein group)
+function getLegumiProtein(label) {
+  const lbl = label.toUpperCase();
+  if(!lbl.includes('LEGUMI')) return 0;
+  const m = label.match(/(\d+)\s*gr?\s+LEGUMI/i);
+  if(!m) return 0;
+  const n = calcKcal('legumi cotti', parseInt(m[1]));
+  return n ? n.p : 0;
+}
+
+
 // ── Diet storage ───────────────────────────────────────────────────────────────
 const DIET_KEY = "fitness_diet_v1";
 function loadDiet() { try{const s=localStorage.getItem(DIET_KEY);return s?JSON.parse(s):null;}catch{return null;} }
@@ -1574,35 +1653,47 @@ function saveDiet(d) { try{localStorage.setItem(DIET_KEY,JSON.stringify(d));}cat
 // ── Meal Option Selector ───────────────────────────────────────────────────────
 // Seasonal fruits with accurate kcal/100g
 const FRUTTI_STAGIONE = [
-  // Frutta a basse calorie (< 50 kcal/100g)
-  {nome:"Anguria",    food:"anguria"},    // 30
-  {nome:"Melone",     food:"melone"},     // 34
-  {nome:"Fragola",    food:"fragola"},    // 33
-  {nome:"Lampone",    food:"lampone"},    // 52
-  {nome:"Papaya",     food:"papaya"},     // 43
-  {nome:"Pompelmo",   food:"pompelmo"},   // 42
-  {nome:"Limone",     food:"limone"},     // 29
-  // Frutta media (50-70 kcal/100g)
-  {nome:"Mela",       food:"mela"},       // 52
-  {nome:"Pera",       food:"pera"},       // 57
-  {nome:"Pesca",      food:"pesca"},      // 39
-  {nome:"Albicocca",  food:"albicocca"},  // 48
-  {nome:"Arancia",    food:"arancia"},    // 47
-  {nome:"Mandarino",  food:"mandarino"},  // 53
-  {nome:"Susina",     food:"susina"},     // 46
-  {nome:"Mirtillo",   food:"mirtillo"},   // 57
-  {nome:"Kiwi",       food:"kiwi"},       // 61
-  {nome:"Ciliegie",   food:"ciliegie"},   // 63
-  {nome:"Ananas",     food:"ananas"},     // 50
-  {nome:"Pesca noce", food:"pesca noce"}, // 44
-  {nome:"Melograno",  food:"melograno"},  // 68
-  // Frutta più calorica (70+ kcal/100g)
-  {nome:"Uva",        food:"uva"},        // 69
-  {nome:"Fico",       food:"fico"},       // 74
-  {nome:"Mango",      food:"mango"},      // 60
-  {nome:"Banana",     food:"banana"},     // 89
-  {nome:"Avocado",    food:"avocado"},    // 160
-  {nome:"Cocco",      food:"cocco"},      // 354
+  // Basse calorie
+  {nome:"Anguria",       food:"anguria"},
+  {nome:"Fragola",       food:"fragola"},
+  {nome:"Fragoline",     food:"fragoline"},
+  {nome:"Melone",        food:"melone"},
+  {nome:"Melone cantalupo",food:"melone cantalupo"},
+  {nome:"Pompelmo",      food:"pompelmo"},
+  {nome:"Pesca",         food:"pesca"},
+  {nome:"Pesca noce",    food:"pesca noce"},
+  {nome:"Albicocca",     food:"albicocca"},
+  {nome:"Albicocca secca",food:"albicocca secca"},
+  {nome:"Lampone",       food:"lampone"},
+  {nome:"Mora",          food:"mora"},
+  {nome:"Ribes",         food:"ribes"},
+  {nome:"Fico d'india",  food:"fico d'india"},
+  // Medie calorie
+  {nome:"Mela",          food:"mela"},
+  {nome:"Mela Golden",   food:"mela golden"},
+  {nome:"Mela Fuji",     food:"mela fuji"},
+  {nome:"Pera",          food:"pera"},
+  {nome:"Pera Williams", food:"pera williams"},
+  {nome:"Papaya",        food:"papaya"},
+  {nome:"Mirtillo",      food:"mirtillo"},
+  {nome:"Arancia",       food:"arancia"},
+  {nome:"Clementina",    food:"clementina"},
+  {nome:"Mandarino",     food:"mandarino"},
+  {nome:"Susina",        food:"susina"},
+  {nome:"Kiwi",          food:"kiwi"},
+  {nome:"Ananas",        food:"ananas"},
+  {nome:"Uva bianca",    food:"uva bianca"},
+  {nome:"Uva nera",      food:"uva nera"},
+  {nome:"Ciliegie",      food:"ciliegie"},
+  {nome:"Fico",          food:"fico"},
+  {nome:"Melograno",     food:"melograno"},
+  {nome:"Mango",         food:"mango"},
+  // Alte calorie
+  {nome:"Banana",        food:"banana"},
+  {nome:"Dattero",       food:"dattero"},
+  {nome:"Prugna secca",  food:"prugna secca"},
+  {nome:"Avocado",       food:"avocado"},
+  {nome:"Cocco",         food:"cocco"},
 ];
 
 function FruttaPicker({grams, onSelect}) {
@@ -1617,8 +1708,10 @@ function FruttaPicker({grams, onSelect}) {
         width:"100%",background:"#1C1C28",
         borderRadius:"24px 24px 0 0",
         border:"1px solid rgba(255,255,255,0.12)",
-        padding:"16px 20px calc(32px + env(safe-area-inset-bottom,0px))",
-        maxHeight:"70vh",overflowY:"auto",
+        padding:"16px 20px 0",
+        paddingBottom:"calc("+TAB_H+"px + env(safe-area-inset-bottom,0px) + 16px)",
+        maxHeight:"85vh",overflowY:"auto",
+        WebkitOverflowScrolling:"touch",
         animation:"slideUp 0.3s cubic-bezier(.32,1,.36,1)",
       }}>
         <div style={{width:36,height:4,background:"rgba(255,255,255,0.2)",borderRadius:2,margin:"0 auto 20px"}}/>
@@ -1646,7 +1739,7 @@ function FruttaPicker({grams, onSelect}) {
   );
 }
 
-function MealOptionSelector({meal, selectedIdx, selectedFruit, onSelect, onFruitSelect}) {
+function MealOptionSelector({meal, selectedIdx, selectedFruit, onSelect, onFruitSelect, legumiProtein=0}) {
   if(!meal || !meal.options || meal.options.length === 0) return null;
   const [showFruttaPicker, setShowFruttaPicker] = useState(false);
 
@@ -1659,7 +1752,7 @@ function MealOptionSelector({meal, selectedIdx, selectedFruit, onSelect, onFruit
     <div style={{marginBottom:14}}>
       {showFruttaPicker&&(
         <FruttaPicker
-          grams={parseMealOption(meal.options[selectedIdx]?.label||meal.options[selectedIdx]||"").grams||150}
+          grams={parseComponents(meal.options[selectedIdx]?.label||meal.options[selectedIdx]||"")[0]?.grams||150}
           onSelect={fruit=>{
             if(fruit)onFruitSelect&&onFruitSelect(fruit);
             setShowFruttaPicker(false);
@@ -1668,80 +1761,73 @@ function MealOptionSelector({meal, selectedIdx, selectedFruit, onSelect, onFruit
       )}
       <div style={{fontSize:12,fontWeight:800,color:G.text3,letterSpacing:0.8,textTransform:"uppercase",marginBottom:8}}>
         {meal.label}
+        {legumiProtein>0&&(
+          <span style={{marginLeft:8,fontSize:10,color:G.green,fontWeight:600,textTransform:'none',letterSpacing:0}}>
+            · {legumiProtein.toFixed(1)}g prot. da legumi
+          </span>
+        )}
       </div>
       <div style={{display:"flex",flexDirection:"column",gap:6}}>
         {meal.options.map((opt,i)=>{
           const label = opt.label||opt||"";
-          const parsed = parseMealOption(label);
           const isFrutta = isFruttaOpt(opt);
-          // For frutta: use selected fruit or generic
-          const foodKey = isFrutta&&selectedFruit&&selectedIdx===i ? selectedFruit : parsed.food;
-          const nutrition = parsed.grams ? calcKcal(foodKey, parsed.grams) : null;
           const isSelected = selectedIdx === i;
 
-          // Legumi: combined calc — legumi + pane
-          const isLegumi = label.toUpperCase().includes("LEGUMI") && label.includes("+");
-        const isOlioVerdura = label.toUpperCase().includes("OLIO") && label.toUpperCase().includes("VERDURA");
-          let combinedNutrition = null;
-          if(isOlioVerdura){
-            const olioM = label.match(/(\d+)\s*gr?\s+OLIO/i);
-            combinedNutrition = calcKcal("olio evo", olioM?parseInt(olioM[1]):parsed.grams||20);
-          } else if(isLegumi && parsed.grams){
-            const paMatch = label.match(/\+\s*(\d+)\s*gr?\s+PANE/i);
-            const paGrams = paMatch?parseInt(paMatch[1]):0;
-            const nLegumi = calcKcal("legumi cotti", parsed.grams);
-            const nPane = paGrams?calcKcal("pane", paGrams):null;
-            if(nLegumi){
-              combinedNutrition = {
-                kcal:Math.round((nLegumi.kcal||0)+(nPane?.kcal||0)),
-                p:Math.round(((nLegumi.p||0)+(nPane?.p||0))*10)/10,
-                c:Math.round(((nLegumi.c||0)+(nPane?.c||0))*10)/10,
-                g:Math.round(((nLegumi.g||0)+(nPane?.g||0))*10)/10,
-              };
-            }
+          // Compute nutrition using multi-component parser
+          let nutrition = null;
+          if(isFrutta && isSelected && selectedFruit) {
+            const grams = parseComponents(label)[0]?.grams || 150;
+            nutrition = calcKcal(selectedFruit, grams);
+          } else {
+            nutrition = calcMulti(label);
           }
-          const displayNutrition = combinedNutrition || nutrition;
+
+          // For frutta with no fruit selected yet, show generic
+          if(isFrutta && !selectedFruit && parseComponents(label)[0]?.grams) {
+            nutrition = calcKcal("frutta", parseComponents(label)[0].grams);
+          }
+
+          // Adjust protein display for legumi coverage
+          const displayNutrition = (nutrition && legumiProtein > 0 && !isFrutta)
+            ? {...nutrition, p: Math.max(0, Math.round((nutrition.p - legumiProtein)*10)/10), pNote: true}
+            : nutrition;
 
           return (
             <button key={i} onClick={()=>{
               onSelect(i);
               if(isFrutta) setTimeout(()=>setShowFruttaPicker(true),150);
             }} style={{
-              width:"100%", padding:"11px 14px", borderRadius:12, cursor:"pointer",
-              border:`2px solid ${isSelected?G.green:G.border}`,
+              width:"100%", padding:"12px 14px", borderRadius:14, cursor:"pointer",
+              border:"1.5px solid "+(isSelected?G.green:G.border),
               background:isSelected?G.cardGreen:G.surface,
               textAlign:"left", transition:"all 0.15s",
-              boxShadow:isSelected?`0 2px 8px ${G.green}22`:"none",
+              boxShadow:isSelected?"0 2px 8px "+G.green+"22":"none",
             }}>
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8}}>
                 <div style={{flex:1}}>
                   <div style={{fontSize:13,fontWeight:isSelected?700:500,color:isSelected?G.text:G.text2,lineHeight:1.4}}>
-                    {isSelected && <span style={{color:G.green,marginRight:6}}>✓</span>}
+                    {isSelected&&<span style={{color:G.green,marginRight:5}}>✓ </span>}
                     {isFrutta&&isSelected&&selectedFruit
                       ? label.replace(/FRUTTA(?: DI STAGIONE)?/i, selectedFruit.charAt(0).toUpperCase()+selectedFruit.slice(1))
                       : (label.toUpperCase().includes("OLIO")&&label.toUpperCase().includes("VERDURA"))
-                        ? <span>{label.split('+')[0].trim()} <span style={{color:G.text3,fontSize:11}}>+ Verdura libera (q.b.)</span></span>
+                        ? <span>{label.split("+")[0].trim()} <span style={{fontSize:11,color:G.text3}}>+ verdura libera</span></span>
                         : label}
                   </div>
                   {isFrutta&&isSelected&&(
-                    <div style={{fontSize:11,color:G.orange,marginTop:3}}>
-                      {selectedFruit?"Tocca per cambiare frutto ›":"Tocca per scegliere il frutto ›"}
-                    </div>
-                  )}
-                  {isFrutta&&isSelected&&(
                     <button onClick={e=>{e.stopPropagation();setShowFruttaPicker(true);}} style={{
-                      marginTop:6,padding:"5px 10px",borderRadius:8,border:"1px solid "+G.orange,
+                      marginTop:6,padding:"4px 10px",borderRadius:8,border:"1px solid "+G.orange,
                       background:G.orangeDim,color:G.orange,fontSize:11,fontWeight:700,cursor:"pointer",
                     }}>
-                      <Icon name="leaf" size={13} color={G.orange}/> {selectedFruit?selectedFruit.charAt(0).toUpperCase()+selectedFruit.slice(1):"Scegli frutto"}
+                      {selectedFruit?selectedFruit.charAt(0).toUpperCase()+selectedFruit.slice(1):"Scegli frutto"}
                     </button>
                   )}
-                  {opt.note && <div style={{fontSize:11,color:G.orange,marginTop:2}}><Icon name="warning" size={11} color={G.orange}/> {opt.note}</div>}
                 </div>
-                {displayNutrition && (
+                {displayNutrition&&(
                   <div style={{textAlign:"right",flexShrink:0}}>
-                    <div style={{fontSize:13,fontWeight:800,color:isSelected?G.green:G.text3}}>{displayNutrition.kcal} kcal</div>
-                    <div style={{fontSize:10,color:G.text3}}>P{displayNutrition.p} C{displayNutrition.c} G{displayNutrition.g}</div>
+                    <div style={{fontSize:14,fontWeight:800,color:isSelected?G.green:G.text2}}>{displayNutrition.kcal}<span style={{fontSize:10,color:G.text3,marginLeft:1}}>kcal</span></div>
+                    <div style={{fontSize:10,color:G.text3}}>
+                      P{displayNutrition.p}{displayNutrition.pNote?"*":""} C{displayNutrition.c} G{displayNutrition.g}
+                    </div>
                   </div>
                 )}
               </div>
@@ -1753,7 +1839,6 @@ function MealOptionSelector({meal, selectedIdx, selectedFruit, onSelect, onFruit
   );
 }
 
-// ── Meal Summary ──────────────────────────────────────────────────────────────
 function MealSummary({meal, selections}) {
   if(!meal || !meal.groups) return null;
   let totalKcal=0, totalP=0, totalC=0, totalG=0, hasData=false;
@@ -1863,39 +1948,27 @@ function ScreenDieta({onBack}) {
     let totalKcal=0, totalP=0, totalC=0, totalG=0;
     (day.meals||[]).forEach((meal,mi)=>{
       const sels = mealSelections[mi]||{};
+      let mealHasAnySelection = false;
       (meal.groups||[]).forEach((group,gi)=>{
         const selIdx = sels[gi];
         if(selIdx==null) return;
         const opt = group.options[selIdx];
         if(!opt) return;
-        const parsed = parseMealOption(opt.label||opt);
+        mealHasAnySelection = true;
         const label = opt.label||opt||"";
         const isFrutta = label.toUpperCase().includes("FRUTTA") && !label.toUpperCase().includes("SECCA");
-        const isLegumi = label.toUpperCase().includes("LEGUMI") && label.includes("+");
-        const isOlioVerdura = label.toUpperCase().includes("OLIO") && label.toUpperCase().includes("VERDURA");
         let n = null;
-        if(isLegumi && parsed.grams){
-          const paMatch = label.match(/\+\s*(\d+)\s*gr?\s+PANE/i);
-          const paGrams = paMatch?parseInt(paMatch[1]):0;
-          const nL = calcKcal("legumi cotti", parsed.grams);
-          const nP = paGrams?calcKcal("pane", paGrams):null;
-          if(nL) n={kcal:Math.round((nL.kcal||0)+(nP?.kcal||0)),p:Math.round(((nL.p||0)+(nP?.p||0))*10)/10,c:Math.round(((nL.c||0)+(nP?.c||0))*10)/10,g:Math.round(((nL.g||0)+(nP?.g||0))*10)/10};
+        if(isFrutta) {
+          const fruitKey = selectedFruits[mi+"_"+gi];
+          const grams = parseComponents(label)[0]?.grams || 150;
+          n = fruitKey ? calcKcal(fruitKey, grams) : calcKcal("frutta", grams);
         } else {
-          const fruitKey = isFrutta&&(selectedFruits[mi+"_"+gi]) ? selectedFruits[mi+"_"+gi] : parsed.food;
-          if(isOlioVerdura){
-            // Only calculate olio, verdura is free/unlimited
-            const olioMatch = label.match(/(\d+)\s*gr?\s+OLIO/i);
-            const olioGrams = olioMatch ? parseInt(olioMatch[1]) : parsed.grams;
-            n = calcKcal("olio evo", olioGrams);
-          } else {
-            n = parsed.grams ? calcKcal(fruitKey, parsed.grams) : null;
-          }
+          n = calcMulti(label);
         }
         if(n){ totalKcal+=n.kcal; totalP+=n.p; totalC+=n.c; totalG+=n.g; }
       });
-      // fixedKcal (olio evo, verdura) solo se almeno un alimento del pasto è selezionato
-      const mealHasSel = (meal.groups||[]).some((_,gi)=>(mealSelections[mi]||{})[gi]!=null);
-      if(meal.fixedKcal && mealHasSel) totalKcal+=meal.fixedKcal;
+            // fixedKcal (olio evo, verdura) solo se almeno un alimento del pasto è selezionato
+      if(meal.fixedKcal && mealHasAnySelection) totalKcal+=meal.fixedKcal;
     });
     return {kcal:Math.round(totalKcal), p:Math.round(totalP*10)/10, c:Math.round(totalC*10)/10, g:Math.round(totalG*10)/10};
   })();
@@ -2003,6 +2076,19 @@ function ScreenDieta({onBack}) {
                   selectedFruit={selectedFruits[mi+"_"+gi]}
                   onSelect={idx=>selectMealOption(mi,gi,idx)}
                   onFruitSelect={fruit=>selectFruit(mi,gi,fruit)}
+                  legumiProtein={
+                    // If this is the protein group, pass legumi protein from carb group selection
+                    group.label&&group.label.toLowerCase().includes('proteic')
+                      ? (meal.groups||[]).reduce((acc,g,gi2)=>{
+                          if(gi2===gi) return acc;
+                          const selI=(mealSelections[mi]||{})[gi2];
+                          if(selI==null) return acc;
+                          const opt=g.options[selI];
+                          const lbl=opt?.label||opt||'';
+                          return acc+getLegumiProtein(lbl);
+                        },0)
+                      : 0
+                  }
                 />
               ))}
               <MealSummary meal={meal} selections={mealSelections[mi]||{}}/>
@@ -2511,8 +2597,9 @@ function ScreenGrafico({cycles, onBack}) {
       {/* Header */}
       <div style={{
         background:'linear-gradient(160deg,#0B1E14 0%,#0D1F18 100%)',
-        padding:`calc(env(safe-area-inset-top,0px) + 20px) 20px 20px`,
-        borderBottom:`1px solid rgba(0,200,150,0.1)`,
+        paddingTop:'calc(env(safe-area-inset-top, 20px) + 20px)',
+        paddingLeft:20, paddingRight:20, paddingBottom:20,
+        borderBottom:'1px solid rgba(0,200,150,0.1)',
       }}>
         <div style={{fontSize:28,fontWeight:900,color:G.text,letterSpacing:-0.8,marginBottom:16}}>Andamento</div>
 
