@@ -364,6 +364,14 @@
 </head>
 <body>
 <div id="root"></div>
+<script>
+window.onerror = function(msg, src, line, col, err) {
+  var existing = document.getElementById('root').innerHTML;
+  if(!existing || existing.trim() === '') {
+    document.getElementById('root').innerHTML = '<div style="color:#FF6B6B;padding:20px;font-family:monospace;background:#1a0000;min-height:100vh;white-space:pre-wrap;font-size:13px">❌ JS ERROR:\n' + msg + '\nLine: ' + line + '\n' + (err ? err.stack : '') + '</div>';
+  }
+};
+</script>
 
 <script type="text/babel">
 
@@ -2290,7 +2298,28 @@ function App() {
   );
 }
 
-ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+
+// Error boundary
+class ErrorBoundary extends React.Component {
+  constructor(props) { super(props); this.state = {error: null}; }
+  static getDerivedStateFromError(e) { return {error: e}; }
+  render() {
+    if(this.state.error) {
+      return React.createElement('div', {style:{color:'#FF6B6B',padding:20,fontFamily:'monospace',background:'#1a0000',minHeight:'100vh',whiteSpace:'pre-wrap',fontSize:13}},
+        '❌ ERROR:\n' + this.state.error.toString() + '\n\n' + (this.state.error.stack||''));
+    }
+    return this.props.children;
+  }
+}
+
+try {
+  ReactDOM.createRoot(document.getElementById('root')).render(
+    React.createElement(ErrorBoundary, null, React.createElement(App))
+  );
+} catch(e) {
+  document.getElementById('root').innerHTML = '<div style="color:#FF6B6B;padding:20px;font-family:monospace;background:#1a0000;min-height:100vh;white-space:pre-wrap;font-size:13px">❌ RENDER ERROR:\n' + e.toString() + '\n\n' + (e.stack||'') + '</div>';
+}
+
 
 
 </script>
