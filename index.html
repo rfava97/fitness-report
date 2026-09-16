@@ -586,15 +586,7 @@ function ScreenSetup({onDone, onImport, prefill}) {
         <Btn onClick={handleNext} disabled={!canNext()}>
           {step===totalSteps-1 ? "Inizia →" : "Avanti →"}
         </Btn>
-        {step===0 && !isCompletion && (
-          <button onClick={onImport} style={{
-            width:"100%",marginTop:12,padding:"12px",borderRadius:14,
-            border:"none",background:"transparent",
-            color:G.text3,fontSize:13,fontWeight:600,cursor:"pointer",
-          }}>
-            Hai già dei cicli Excel? Importa qui →
-          </button>
-        )}
+
       </div>
     </div>
   );
@@ -859,18 +851,6 @@ function ScreenDashboard({profile,cycles,onOpenDay,onOpenFeedback,onNewCycle,onO
           </>
         )}
 
-        {/* Quick import link when few/no historical cycles */}
-        {cycles.filter(c=>c.completed).length===0&&profile&&(
-          <button onClick={()=>onOpenPrevious&&onOpenImport&&onOpenImport()} style={{
-            width:"100%",padding:"12px 16px",borderRadius:14,marginBottom:8,
-            border:"1px solid "+G.border,background:"transparent",
-            color:G.text3,fontSize:13,fontWeight:600,cursor:"pointer",textAlign:"left",
-            display:"flex",justifyContent:"space-between",alignItems:"center",
-          }}>
-            <span>Importa cicli storici da Excel</span>
-            <span style={{color:G.green}}>›</span>
-          </button>
-        )}
         {(!cycle||cycle.exported)&&(
           closedCycle ? (
             <div style={{background:"#FFF8E1",borderRadius:18,padding:"18px 20px",marginTop:cycle?8:0,
@@ -1372,6 +1352,14 @@ function ScreenProfilo({profile,onSave,onBack,onImport}) {
           </div>}
         </Card>
 
+        <SectionLabel>Storico Excel</SectionLabel>
+        <Card style={{marginBottom:16}}>
+          <div style={{fontSize:14,fontWeight:700,color:G.text,marginBottom:4}}>Importa cicli da Excel</div>
+          <div style={{fontSize:12,color:G.text3,marginBottom:12,lineHeight:1.6}}>
+            Aggiungi cicli storici importando i file Excel generati dall'app
+          </div>
+          <Btn variant="outline" small onClick={onImport}>Importa da Excel</Btn>
+        </Card>
         <Btn onClick={()=>onSave({...profile,visitaNutrizionista:visita})} disabled={!visitaOk}>Salva →</Btn>
         <div style={{marginTop:32,paddingTop:20,borderTop:"1px solid "+G.border}}>
           <button onClick={()=>{if(window.confirm("Vuoi resettare tutti i dati? Questa azione è irreversibile.")){localStorage.clear();sessionStorage.clear();window.location.reload();}}} style={{
@@ -1855,132 +1843,186 @@ function ScreenDieta({onBack}) {
 
 
 // ── PassiChart — bar chart of steps per cycle ──────────────────────────────────
+
 function PassiChart({cycles}) {
-  // Collect cycles that have at least one passi value
-  const data = cycles
-    .filter(c => c.mediaPassiSett1 || c.mediaPassiSett2)
-    .map(c => ({
-      label: `C${c.id+1}`,
-      startDate: c.startDate,
-      s1: parseInt(c.mediaPassiSett1)||0,
-      s2: parseInt(c.mediaPassiSett2)||0,
-    }));
+  var data = [];
+  cycles.forEach(function(c) {
+    var s1 = parseInt(c.mediaPassiSett1)||0;
+    var s2 = parseInt(c.mediaPassiSett2)||0;
+    if(s1>0) data.push({label:"C"+(c.id+1)+" S1", val:s1, cycleId:c.id, sett:1, date:c.startDate});
+    if(s2>0) data.push({label:"C"+(c.id+1)+" S2", val:s2, cycleId:c.id, sett:2, date:c.startDate});
+  });
 
   if(data.length === 0) return (
-    <Card style={{padding:'14px 16px',marginBottom:14}}>
-      <div style={{fontSize:13,fontWeight:800,color:G.text,marginBottom:4}}>🚶 Media Passi per Ciclo</div>
+    <div style={{background:G.card,borderRadius:18,padding:"20px 18px",marginBottom:12,border:"1px solid "+G.border}}>
+      <div style={{fontSize:13,fontWeight:800,color:G.text,marginBottom:4}}>Passi medi</div>
       <div style={{fontSize:12,color:G.text3}}>Nessun dato passi disponibile</div>
-    </Card>
+    </div>
   );
 
-  const allVals = data.flatMap(d=>[d.s1,d.s2]).filter(v=>v>0);
-  const maxVal = Math.max(...allVals);
-  const W = 320, H = 120, PL = 36, PR = 8, PT = 8, PB = 22;
-  const cW = W - PL - PR, cH = H - PT - PB;
-  const barGroupW = cW / data.length;
-  const barW = Math.min(14, barGroupW * 0.35);
-  const gap = 3;
-  const toH = v => v > 0 ? Math.max(4, (v / maxVal) * cH) : 0;
-  const toY = v => PT + cH - toH(v);
+  var vals = data.map(function(d){return d.val;});
+  var maxV = Math.max.apply(null, vals);
+  var minV = Math.min.apply(null, vals);
+  var avgV = Math.round(vals.reduce(function(a,b){return a+b;},0)/vals.length);
+  var fmt = function(v){return v>=1000?(v/1000).toFixed(1)+"k":String(v);};
 
-  // Y axis labels (round to nearest 1000)
-  const yStep = maxVal > 10000 ? 2000 : 1000;
-  const yLabels = [];
-  for(let v = 0; v <= maxVal; v += yStep) yLabels.push(v);
-  if(yLabels[yLabels.length-1] < maxVal) yLabels.push(Math.ceil(maxVal/yStep)*yStep);
+  // Trend line (linear regression over index)
+  var n = data.length;
+  var xs = data.map(function(_,i){return i;});
+  var ys = vals;
+  var mx = (n-1)/2;
+  var my = avgV;
+  var num = xs.reduce(function(s,x,i){return s+(x-mx)*(ys[i]-my);},0);
+  var den = xs.reduce(function(s,x){return s+(x-mx)*(x-mx);},0);
+  var slope = den ? num/den : 0;
+  var intercept = my - slope*mx;
+  var trendUp = slope > 50;
+  var trendDown = slope < -50;
+  var trendColor = trendUp ? G.ok : trendDown ? G.coral : G.text3;
+  var trendLabel = trendUp ? "↑ In crescita" : trendDown ? "↓ In calo" : "→ Stabile";
 
-  const avg1 = data.reduce((a,d)=>a+d.s1,0)/data.filter(d=>d.s1>0).length||0;
-  const avg2 = data.reduce((a,d)=>a+d.s2,0)/data.filter(d=>d.s2>0).length||0;
+  // SVG
+  var W=340, H=140, PL=40, PR=12, PT=12, PB=36;
+  var cW=W-PL-PR, cH=H-PT-PB;
+  var toX = function(i){return PL+(i/Math.max(data.length-1,1))*cW;};
+  var toY = function(v){
+    var rng = maxV-minV||1000;
+    return PT+cH-((v-minV)/rng)*cH;
+  };
+
+  // Build SVG path
+  var pathD = data.map(function(d,i){
+    return (i===0?"M ":"L ")+toX(i)+" "+toY(d.val);
+  }).join(" ");
+
+  var areaD = pathD+" L "+toX(data.length-1)+" "+(PT+cH)+" L "+toX(0)+" "+(PT+cH)+" Z";
+
+  // Trend line
+  var ty0 = toY(intercept);
+  var ty1 = toY(intercept+slope*(n-1));
+  // Clamp to chart area
+  var clamp = function(v){return Math.max(PT, Math.min(PT+cH, v));};
+
+  // Y labels
+  var yMid = Math.round((minV+maxV)/2);
+  var yLabels = [minV, yMid, maxV];
+
+  // Cycle boundary lines
+  var cycleIds = [];
+  data.forEach(function(d,i){
+    if(i>0 && d.cycleId !== data[i-1].cycleId) cycleIds.push(i);
+  });
 
   return (
-    <Card style={{padding:'14px 14px',marginBottom:14}}>
-      <div style={{fontSize:13,fontWeight:800,color:G.text,marginBottom:2}}>🚶 Media Passi per Ciclo</div>
-      <div style={{fontSize:11,color:G.text3,marginBottom:10}}>
-        Media S.1: <b style={{color:G.orange}}>{avg1>0?Math.round(avg1).toLocaleString('it-IT'):'—'}</b>
-        {' · '}
-        Media S.2: <b style={{color:'#8D6E63'}}>{avg2>0?Math.round(avg2).toLocaleString('it-IT'):'—'}</b>
+    <div style={{background:G.card,borderRadius:18,padding:"16px 16px 12px",marginBottom:12,border:"1px solid "+G.border}}>
+      {/* Header */}
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:14}}>
+        <div>
+          <div style={{fontSize:13,fontWeight:800,color:G.text,marginBottom:2}}>Passi medi</div>
+          <div style={{fontSize:11,color:G.text3}}>{data.length} rilevazioni · {cycles.filter(function(c){return c.mediaPassiSett1||c.mediaPassiSett2;}).length} cicli</div>
+        </div>
+        <div style={{textAlign:"right"}}>
+          <div style={{fontSize:22,fontWeight:900,color:G.orange,letterSpacing:-1}}>{fmt(avgV)}</div>
+          <div style={{fontSize:11,color:trendColor,fontWeight:700}}>{trendLabel}</div>
+        </div>
       </div>
 
-      {/* Legend */}
-      <div style={{display:'flex',gap:14,marginBottom:10}}>
-        {[{c:G.orange,l:'Settimana 1'},{c:'#8D6E63',l:'Settimana 2'}].map(({c,l})=>(
-          <div key={l} style={{display:'flex',alignItems:'center',gap:4}}>
-            <div style={{width:10,height:10,borderRadius:3,background:c,flexShrink:0}}/>
-            <span style={{fontSize:10,color:G.text3,fontWeight:600}}>{l}</span>
-          </div>
-        ))}
-      </div>
+      {/* Chart */}
+      <svg width="100%" viewBox={"0 0 "+W+" "+H} style={{display:"block",overflow:"visible"}}>
+        <defs>
+          <linearGradient id="passiGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#FF9F0A" stopOpacity="0.25"/>
+            <stop offset="100%" stopColor="#FF9F0A" stopOpacity="0.02"/>
+          </linearGradient>
+        </defs>
 
-      <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{overflow:'visible'}}>
-        {/* Y grid + labels */}
-        {yLabels.filter(v=>v<=maxVal*1.05).map((v,i)=>(
+        {/* Y grid */}
+        {yLabels.map(function(v,i){return (
           <g key={i}>
             <line x1={PL} y1={toY(v)} x2={W-PR} y2={toY(v)}
-              stroke={G.border} strokeWidth="1" strokeDasharray="3,3"/>
-            <text x={PL-4} y={toY(v)+4} textAnchor="end" fontSize="8" fill={G.text3}>
-              {v>=1000?(v/1000).toFixed(0)+'k':v}
+              stroke="rgba(255,255,255,0.06)" strokeWidth="1"/>
+            <text x={PL-5} y={toY(v)+4} textAnchor="end" fontSize="9" fill="rgba(255,255,255,0.3)">
+              {fmt(v)}
             </text>
           </g>
-        ))}
+        );})}
 
-        {/* Bars */}
-        {data.map((d,i)=>{
-          const cx = PL + i * barGroupW + barGroupW/2;
-          const x1 = cx - barW - gap/2;
-          const x2 = cx + gap/2;
-          const h1 = toH(d.s1), h2 = toH(d.s2);
-          const y1 = toY(d.s1), y2 = toY(d.s2);
+        {/* Average line */}
+        <line x1={PL} y1={toY(avgV)} x2={W-PR} y2={toY(avgV)}
+          stroke="rgba(255,159,10,0.3)" strokeWidth="1" strokeDasharray="4,3"/>
+
+        {/* Cycle boundaries */}
+        {cycleIds.map(function(i){return (
+          <line key={i} x1={toX(i)} y1={PT} x2={toX(i)} y2={PT+cH}
+            stroke="rgba(255,255,255,0.08)" strokeWidth="1" strokeDasharray="2,3"/>
+        );})}
+
+        {/* Area */}
+        <path d={areaD} fill="url(#passiGrad)"/>
+
+        {/* Trend line */}
+        {n>=3&&<line x1={toX(0)} y1={clamp(ty0)} x2={toX(n-1)} y2={clamp(ty1)}
+          stroke={trendColor} strokeWidth="1.5" strokeDasharray="5,3" opacity="0.6"/>}
+
+        {/* Line */}
+        <path d={pathD} fill="none" stroke="#FF9F0A" strokeWidth="2.2"
+          strokeLinecap="round" strokeLinejoin="round"/>
+
+        {/* Dots */}
+        {data.map(function(d,i){
+          var x=toX(i), y=toY(d.val);
+          var col = d.sett===1?"#FF9F0A":"#E65100";
+          var showLabel = data.length<=12 || i===0 || i===data.length-1 || i%2===0;
           return (
             <g key={i}>
-              {/* S1 bar */}
-              {d.s1>0&&<>
-                <rect x={x1} y={y1} width={barW} height={h1} rx="3" fill={G.orange} opacity="0.85"/>
-                {h1>14&&<text x={x1+barW/2} y={y1+h1-3} textAnchor="middle" fontSize="7" fill="#fff" fontWeight="700">
-                  {d.s1>=1000?(d.s1/1000).toFixed(1)+'k':d.s1}
-                </text>}
-              </>}
-              {/* S2 bar */}
-              {d.s2>0&&<>
-                <rect x={x2} y={y2} width={barW} height={h2} rx="3" fill="#8D6E63" opacity="0.85"/>
-                {h2>14&&<text x={x2+barW/2} y={y2+h2-3} textAnchor="middle" fontSize="7" fill="#fff" fontWeight="700">
-                  {d.s2>=1000?(d.s2/1000).toFixed(1)+'k':d.s2}
-                </text>}
-              </>}
-              {/* X label */}
-              <text x={cx} y={H-2} textAnchor="middle" fontSize="8" fill={G.text3} fontWeight="700">
+              <circle cx={x} cy={y} r="4.5" fill="#13131A" stroke={col} strokeWidth="2"/>
+              <circle cx={x} cy={y} r="2" fill={col}/>
+              {showLabel&&<text x={x} y={H-2} textAnchor="middle" fontSize="8" fill="rgba(255,255,255,0.3)">
                 {d.label}
-              </text>
+              </text>}
+              {data.length<=8&&<text x={x} y={y-8} textAnchor="middle" fontSize="8" fontWeight="700" fill={col}>
+                {fmt(d.val)}
+              </text>}
             </g>
           );
         })}
-
-        {/* Average lines */}
-        {avg1>0&&<line x1={PL} y1={toY(avg1)} x2={W-PR} y2={toY(avg1)}
-          stroke={G.orange} strokeWidth="1" strokeDasharray="4,3" opacity="0.5"/>}
-        {avg2>0&&<line x1={PL} y1={toY(avg2)} x2={W-PR} y2={toY(avg2)}
-          stroke="#8D6E63" strokeWidth="1" strokeDasharray="4,3" opacity="0.5"/>}
       </svg>
 
-      {/* Cycle detail */}
-      {data.length > 1 && (
-        <div style={{marginTop:8,display:'flex',gap:6,flexWrap:'wrap'}}>
-          {data.map((d,i)=>(
-            <div key={i} style={{background:'#F7FAF5',borderRadius:8,padding:'5px 9px',border:`1px solid ${G.border}`}}>
-              <div style={{fontSize:10,fontWeight:800,color:G.text3}}>{d.label} · {d.startDate}</div>
-              <div style={{fontSize:11,marginTop:2}}>
-                <span style={{color:G.orange,fontWeight:700}}>{d.s1>0?d.s1.toLocaleString('it-IT'):'—'}</span>
-                <span style={{color:G.text3,margin:'0 3px'}}>·</span>
-                <span style={{color:'#8D6E63',fontWeight:700}}>{d.s2>0?d.s2.toLocaleString('it-IT'):'—'}</span>
+      {/* Legend */}
+      <div style={{display:"flex",gap:16,marginTop:8}}>
+        {[{c:"#FF9F0A",l:"Settimana 1"},{c:"#E65100",l:"Settimana 2"},{c:trendColor,l:trendLabel,dashed:true}].map(function(item,i){return (
+          <div key={i} style={{display:"flex",alignItems:"center",gap:4}}>
+            {item.dashed
+              ? <svg width="16" height="4"><line x1="0" y1="2" x2="16" y2="2" stroke={item.c} strokeWidth="2" strokeDasharray="4,2"/></svg>
+              : <div style={{width:10,height:10,borderRadius:2,background:item.c,flexShrink:0}}/>
+            }
+            <span style={{fontSize:10,color:G.text3,fontWeight:600}}>{item.l}</span>
+          </div>
+        );})}
+      </div>
+
+      {/* Per-cycle summary */}
+      {cycles.filter(function(c){return c.mediaPassiSett1||c.mediaPassiSett2;}).length > 1 && (
+        <div style={{marginTop:12,display:"flex",gap:6,flexWrap:"wrap"}}>
+          {cycles.filter(function(c){return c.mediaPassiSett1||c.mediaPassiSett2;}).map(function(c){
+            var s1=parseInt(c.mediaPassiSett1)||0, s2=parseInt(c.mediaPassiSett2)||0;
+            var avg2 = s1&&s2?Math.round((s1+s2)/2):s1||s2;
+            return (
+              <div key={c.id} style={{background:"rgba(255,255,255,0.04)",borderRadius:10,
+                padding:"8px 10px",border:"1px solid "+G.border,flex:"1 1 auto",minWidth:80}}>
+                <div style={{fontSize:10,fontWeight:800,color:G.text3,marginBottom:4}}>Ciclo #{c.id+1}</div>
+                <div style={{fontSize:14,fontWeight:800,color:G.orange}}>{fmt(avg2)}</div>
+                {s1&&s2&&<div style={{fontSize:9,color:G.text3,marginTop:1}}>{fmt(s1)} · {fmt(s2)}</div>}
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
-    </Card>
+    </div>
   );
 }
 
-// ── Screen: Prossima Visita ────────────────────────────────────────────────────
+
 function ScreenProssimaVisita({ultimaVisita, onSave}) {
   const [visita, setVisita] = useState('');
   const visitaOk = visita.length===10 && !!dateFromStr(visita);
