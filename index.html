@@ -1382,8 +1382,8 @@ const KCAL_DB = {
   "albume":{"k":52,"p":10.9,"c":0.7,"g":0.2},
   "whey isolate":{"k":371,"p":90.0,"c":3.5,"g":1.0},
   "whey protein isolate":{"k":371,"p":90.0,"c":3.5,"g":1.0},
-  "latte":{"k":46,"p":3.3,"c":4.9,"g":1.5},
-  "budino proteico milkpro":{"k":95,"p":20.0,"c":3.5,"g":0.9},
+  "latte":{"k":46,"p":3.4,"c":4.8,"g":1.6},
+  "budino proteico milkpro":{"k":130,"p":18.0,"c":8.0,"g":3.0},
   "fiocchi di mais":{"k":368,"p":7.0,"c":83.6,"g":0.8},
   "farina di riso":{"k":351,"p":6.5,"c":80.4,"g":0.5},
   "farina avena":{"k":375,"p":13.2,"c":66.2,"g":6.9},
@@ -1576,41 +1576,57 @@ function FruttaPicker({grams, onSelect}) {
 }
 
 
-function FoodCard({opt, selected, onSelect, legumiProtein, selectedFruit, onFruitSelect, showFruttaPicker, onOpenFrutta}) {
+function FoodCard({opt, selected, onSelect, legumiProtein, proteinReduction, selectedFruit, onOpenFrutta}) {
   var label = (opt.label || opt || '');
   var note = (opt.note || '');
   var lbl = label.toUpperCase();
   var isFrutta = lbl.indexOf('FRUTTA') >= 0 && lbl.indexOf('SECCA') < 0;
   var isOlio = lbl.indexOf('OLIO') >= 0 && lbl.indexOf('VERDURA') >= 0;
+  var pr = proteinReduction || 0;
 
+  // Compute nutrition
   var nutrition = null;
-  if(isFrutta && selected && selectedFruit) {
+  if(isFrutta && selectedFruit) {
     var grams = parseMealOption(label).grams || 150;
     nutrition = calcKcal(selectedFruit, grams);
   } else if(isFrutta) {
-    var grams2 = parseMealOption(label).grams || 150;
-    nutrition = calcKcal('frutta', grams2);
+    nutrition = null; // must pick fruit first
   } else if(isOlio) {
-    var m = label.match(/(\d+)\s*gr?\s+OLIO/i);
-    nutrition = calcKcal('olio evo', m ? parseInt(m[1]) : 20);
+    var mOlio = label.match(/(\d+)\s*gr?\s+OLIO/i);
+    nutrition = calcKcal('olio evo', mOlio ? parseInt(mOlio[1]) : 20);
   } else {
     nutrition = calcMulti(label);
   }
 
-  // Adjust protein if legumi already cover some
-  var displayP = nutrition ? nutrition.p : 0;
-  if(legumiProtein > 0 && nutrition && !isFrutta) {
-    displayP = Math.max(0, Math.round((nutrition.p - legumiProtein) * 10) / 10);
+  // Apply protein gram reduction (from notes like "diminuisci fonte proteica di 50 gr")
+  var displayNutrition = nutrition;
+  var displayLabel = label;
+  if(pr > 0 && nutrition && !isFrutta && !isOlio) {
+    var parts = parseComponents(label);
+    if(parts.length > 0) {
+      var rKcal=0, rP=0, rC=0, rG=0;
+      var reducedLabels = [];
+      parts.forEach(function(pt) {
+        var newG = Math.max(0, pt.grams - pr);
+        var n = calcKcal(pt.food, newG);
+        if(n) { rKcal+=n.kcal; rP+=n.p; rC+=n.c; rG+=n.g; }
+        reducedLabels.push(newG+'g '+pt.food.toUpperCase());
+      });
+      displayNutrition = {kcal:Math.round(rKcal), p:Math.round(rP*10)/10, c:Math.round(rC*10)/10, g:Math.round(rG*10)/10};
+      displayLabel = reducedLabels.join(' + ') + ' (-'+pr+'g prot.)';
+    }
   }
 
-  // Display label
-  var displayLabel = label;
-  if(isFrutta && selected && selectedFruit) {
+  // Adjust protein display for legumi coverage
+  var lp = legumiProtein || 0;
+  var displayP = displayNutrition ? Math.max(0, Math.round((displayNutrition.p - lp)*10)/10) : 0;
+
+  // Olio: show only olio part
+  if(isOlio) displayLabel = label.split('+')[0].trim();
+
+  // Frutta: replace FRUTTA with chosen fruit
+  if(isFrutta && selectedFruit) {
     displayLabel = label.replace(/FRUTTA(?: DI STAGIONE)?/i, selectedFruit.charAt(0).toUpperCase()+selectedFruit.slice(1));
-  }
-  if(isOlio) {
-    var olioStr = label.split('+')[0].trim();
-    displayLabel = olioStr;
   }
 
   return (
@@ -1622,19 +1638,16 @@ function FoodCard({opt, selected, onSelect, legumiProtein, selectedFruit, onFrui
     }}>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:12}}>
         <div style={{flex:1}}>
-          <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:note||isOlio?4:0}}>
+          <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:2}}>
             {selected && <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><polyline points="20,6 9,17 4,12" stroke="#00C896" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>}
             <span style={{fontSize:13,fontWeight:selected?700:500,color:selected?G.text:G.text2,lineHeight:1.4}}>
               {displayLabel}
             </span>
           </div>
           {isOlio && <div style={{fontSize:11,color:G.text3}}>+ verdura libera</div>}
-          {note && !isOlio && <div style={{fontSize:11,color:G.orange,marginTop:2,lineHeight:1.4}}>{note}</div>}
-          {legumiProtein > 0 && selected && !isFrutta && nutrition && nutrition.p > 0 && (
-            <div style={{fontSize:11,color:G.green,marginTop:4}}>
-              Di cui {legumiProtein.toFixed(1)}g prot. già dai legumi
-            </div>
-          )}
+          {note && !isOlio && !pr && <div style={{fontSize:11,color:G.orange,marginTop:2,lineHeight:1.4}}>{note}</div>}
+          {pr > 0 && <div style={{fontSize:11,color:G.orange,marginTop:2}}>Ridotto di {pr}g per i legumi</div>}
+          {lp > 0 && selected && nutrition && <div style={{fontSize:11,color:G.green,marginTop:2}}>{lp.toFixed(1)}g prot. già dai legumi</div>}
           {isFrutta && selected && (
             <button onClick={function(e){e.stopPropagation();onOpenFrutta();}} style={{
               marginTop:6,padding:'3px 8px',borderRadius:7,border:'1px solid '+G.orange,
@@ -1644,22 +1657,24 @@ function FoodCard({opt, selected, onSelect, legumiProtein, selectedFruit, onFrui
             </button>
           )}
         </div>
-        {nutrition && (
+        {isFrutta && !selectedFruit ? (
           <div style={{textAlign:'right',flexShrink:0}}>
-            <div style={{fontSize:15,fontWeight:800,color:selected?G.green:G.text3}}>{nutrition.kcal}</div>
-            <div style={{fontSize:9,color:G.text3}}>kcal</div>
-            <div style={{fontSize:10,color:G.text3,marginTop:2}}>
-              P{displayP} C{nutrition.c} G{nutrition.g}
-            </div>
+            <div style={{fontSize:11,color:G.orange,fontWeight:700}}>Scegli</div>
+            <div style={{fontSize:11,color:G.orange,fontWeight:700}}>frutto</div>
           </div>
-        )}
+        ) : displayNutrition ? (
+          <div style={{textAlign:'right',flexShrink:0}}>
+            <div style={{fontSize:15,fontWeight:800,color:selected?G.green:G.text3}}>{displayNutrition.kcal}</div>
+            <div style={{fontSize:9,color:G.text3}}>kcal</div>
+            <div style={{fontSize:10,color:G.text3,marginTop:2}}>P{displayP} C{displayNutrition.c} G{displayNutrition.g}</div>
+          </div>
+        ) : null}
       </div>
     </button>
   );
 }
 
-// ── Single group (Fonte proteica, Frutta, ecc.) ───────────────────────────────
-function GroupSelector({group, groupIdx, mealIdx, selections, selectedFruits, onSelect, onFruitSelect, legumiProtein}) {
+function GroupSelector({group, groupIdx, mealIdx, selections, selectedFruits, onSelect, onFruitSelect, legumiProtein, proteinReduction}) {
   var [showFrutta, setShowFrutta] = useState(false);
   var selIdx = selections[groupIdx];
 
@@ -1686,6 +1701,7 @@ function GroupSelector({group, groupIdx, mealIdx, selections, selectedFruits, on
               selected={selIdx === oi}
               onSelect={function(){onSelect(groupIdx, oi);}}
               legumiProtein={lp}
+              proteinReduction={proteinReduction||0}
               selectedFruit={selectedFruits[mealIdx+'_'+groupIdx]}
               onFruitSelect={function(){}}
               onOpenFrutta={function(){setShowFrutta(true);}}
@@ -1704,13 +1720,16 @@ function MealCard({meal, mealIdx, selections, selectedFruits, onSelect, onFruitS
   var totalP = 0, totalC = 0, totalG = 0;
   var legumiProtein = 0;
 
-  // First pass: find legumi selection to compute protein offset
+  // First pass: find legumi selection to compute protein offset + gram reduction
+  var proteinReduction = 0;
   meal.groups.forEach(function(group, gi) {
     var selIdx = selections[gi];
     if(selIdx == null) return;
     var opt = group.options[selIdx];
     var lbl = (opt && opt.label) ? opt.label : (opt || '');
+    var note = (opt && opt.note) ? opt.note : '';
     legumiProtein += getLegumiProtein(lbl);
+    proteinReduction = Math.max(proteinReduction, getProteinReduction(note));
   });
 
   // Second pass: compute nutrition
@@ -1784,6 +1803,7 @@ function MealCard({meal, mealIdx, selections, selectedFruits, onSelect, onFruitS
                 onSelect={onSelect}
                 onFruitSelect={onFruitSelect}
                 legumiProtein={lp}
+                proteinReduction={group.label.toLowerCase().indexOf('proteic')>=0 ? proteinReduction : 0}
               />
             );
           })}
