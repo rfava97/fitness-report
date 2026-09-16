@@ -2451,6 +2451,7 @@ function App() {
   const handleNewCycle=()=>{
     if(cycles.some(c=>c.exported&&!c.completed))return;
     const lastRef=cycles.slice().reverse().find(c=>c.exported||c.completed);
+    // Media peso: prendi dalla settimana 2 dell'ultimo ciclo
     let mediaPesoPrec=profile?.mediaPesoPrecIniziale||"";
     if(lastRef?.days?.length>0){
       const lDays=lastRef.days,lHalf=Math.ceil(lDays.length/2);
@@ -2458,11 +2459,28 @@ function App() {
         (lastRef.mediaS2?parseFloat(lastRef.mediaS2):null)??avg(lDays.filter(d=>d.peso))??"";
       mediaPesoPrec=val!==""?String(val):"";
     }
+    // Data inizio: usa la data visita dal profilo se è impostata e successiva
+    // all'ultimo ciclo, altrimenti giorno dopo l'ultimo ciclo
     let startDate=new Date();
+    const visitaDate = profile?.visitaNutrizionista ? getCycleStart(profile.visitaNutrizionista) : null;
     if(lastRef?.days?.length>0){
       const ld=lastRef.days[lastRef.days.length-1];
-      if(ld){const d=dateFromStr(ld.data);if(d){startDate=new Date(d);startDate.setDate(d.getDate()+1);}}
-    } else if(profile?.visitaNutrizionista) startDate=getCycleStart(profile.visitaNutrizionista);
+      if(ld){
+        const lastDay=dateFromStr(ld.data);
+        if(lastDay){
+          const dayAfterLast=new Date(lastDay);
+          dayAfterLast.setDate(lastDay.getDate()+1);
+          // Usa la data visita SOLO se è successiva all'ultimo ciclo
+          if(visitaDate && visitaDate > lastDay){
+            startDate = visitaDate;
+          } else {
+            startDate = dayAfterLast;
+          }
+        }
+      }
+    } else if(visitaDate){
+      startDate = visitaDate;
+    }
     setCycles(p=>[...p,makeNewCycle(startDate,mediaPesoPrec,p.length)]);
   };
   const handleChiudiCiclo=()=>{
