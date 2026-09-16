@@ -317,7 +317,8 @@ function ScreenImportExcel({onImport, onBack}) {
         </Card>
 
         {/* Drop zone */}
-        <input ref={fileRef} type="file" accept=".xlsx,.xls" multiple onChange={handleFiles} style={{display:'none'}}/>
+        <input ref={fileRef} type="file" accept=".xlsx,.xls,.xlt,.xltx" multiple
+          onChange={handleFiles} style={{position:'absolute',opacity:0,width:1,height:1,overflow:'hidden'}}/>
         <button onClick={()=>fileRef.current.click()} style={{
           width:'100%',padding:'22px 20px',borderRadius:18,marginBottom:14,
           border:`2px dashed ${G.green}`,background:G.cardGreen,
@@ -1536,7 +1537,7 @@ function ScreenDieta({onBack}) {
               Carica il PDF del tuo piano alimentare per costruire la tua dieta giornaliera e vedere le calorie di ogni pasto.
             </div>
           </Card>
-          <input ref={fileRef} type="file" accept=".json,.pdf" onChange={handlePdfUpload} style={{display:'none'}}/>
+          <input ref={fileRef} type="file" accept=".json,.pdf" onChange={handlePdfUpload} style={{position:'absolute',opacity:0,width:1,height:1,overflow:'hidden'}}/>
           <button onClick={()=>fileRef.current.click()} disabled={uploading} style={{
             width:'100%',padding:'28px 20px',borderRadius:18,
             border:`2px dashed ${G.green}`,background:G.cardGreen,
@@ -1558,7 +1559,7 @@ function ScreenDieta({onBack}) {
       <div style={{minHeight:'100vh',background:G.bg}}>
         <NavBar title="Dieta" onBack={onBack} right={
           <div style={{display:'flex',gap:8,alignItems:'center'}}>
-            <input ref={fileRef} type="file" accept=".json,.pdf" onChange={handlePdfUpload} style={{display:'none'}}/>
+            <input ref={fileRef} type="file" accept=".json,.pdf" onChange={handlePdfUpload} style={{position:'absolute',opacity:0,width:1,height:1,overflow:'hidden'}}/>
             <button onClick={()=>fileRef.current.click()} style={{
               background:G.cardGreen,border:`1px solid ${G.green}`,borderRadius:8,
               padding:'5px 10px',fontSize:12,fontWeight:700,color:G.green,cursor:'pointer'}}>
@@ -2151,7 +2152,13 @@ function App() {
     }
     setScreen("main");
   };
-  const handleExcelImport=(prof,cycs)=>{setProfile(p=>({...p,...prof}));setCycles(cycs);setScreen("main");};
+  const handleExcelImport=(prof,cycs)=>{
+    setProfile(p=>({...p,...prof}));
+    setCycles(cycs);
+    // If profile incomplete (no dob), show setup for completion
+    if(!prof.dob || !prof.nome) setScreen("setup_complete");
+    else setScreen("main");
+  };
   const handleDeleteCycle=id=>{setCycles(p=>{const f=p.filter(c=>c.id!==id);return f.map((c,i)=>({...c,id:i}));});};
   const handleNewCycle=()=>{
     if(cycles.some(c=>c.exported&&!c.completed))return;
@@ -2196,7 +2203,11 @@ function App() {
   };
   const handleProssimaVisita=v=>{if(v&&dateFromStr(v))setProfile(p=>({...p,visitaNutrizionista:v}));setScreen("main");};
 
-  if(!profile) return <ScreenSetup onDone={handleSetup} onImport={()=>setScreen("import")}/>;
+  if(!profile || screen==="setup_complete") return <ScreenSetup
+    onDone={handleSetup}
+    onImport={()=>setScreen("import")}
+    prefill={profile}
+  />;
   if(screen==="import") return <ScreenImportExcel onImport={handleExcelImport} onBack={()=>setScreen("main")}/>;
   if(screen==="day") return <ScreenDay cycle={currentCycle} dayIdx={activeDayIdx} onSave={handleSaveDay} onBack={()=>setScreen("main")}/>;
   if(screen==="feedback"&&closedCycle) return <ScreenFeedback cycle={closedCycle} onSave={handleSaveFeedback} onBack={()=>setScreen("main")}/>;
@@ -2225,12 +2236,14 @@ function App() {
     return <ScreenProfilo profile={profile} onSave={p=>setProfile(p)} onBack={null}/>;
   };
   return (
-    <div style={{minHeight:"100vh",background:G.bg,paddingBottom:TAB_H+20}}>
+    <div style={{minHeight:"100vh",background:G.bg,paddingBottom:"calc("+TAB_H+"px + env(safe-area-inset-bottom,16px) + 20px)"}}>
       <div>{tabContent()}</div>
-      <div style={{position:"fixed",bottom:0,left:0,right:0,height:TAB_H,
-        background:"rgba(20,20,30,0.95)",borderTop:"1px solid "+G.border,
-        backdropFilter:"blur(20px)",display:"flex",alignItems:"center",zIndex:100,
-        paddingBottom:"env(safe-area-inset-bottom,0px)"}}>
+      <div style={{position:"fixed",bottom:0,left:0,right:0,
+        minHeight:TAB_H,
+        paddingBottom:"env(safe-area-inset-bottom,16px)",
+        background:"rgba(12,12,20,0.97)",borderTop:"1px solid "+G.border,
+        backdropFilter:"blur(20px)",WebkitBackdropFilter:"blur(20px)",
+        display:"flex",alignItems:"flex-start",paddingTop:8,zIndex:100}}>
         {TABS.map(t=>(
           <div key={t.id} onClick={()=>setTab(t.id)} style={{flex:1,display:"flex",flexDirection:"column",
             alignItems:"center",gap:3,cursor:"pointer"}}>
