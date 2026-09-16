@@ -3,6 +3,9 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Report Fit">
 <meta name="apple-mobile-web-app-capable" content="yes"/>
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
 <meta name="apple-mobile-web-app-title" content="Report Fit"/>
@@ -107,8 +110,26 @@ function writeToAppleHealth(date, weightKg) {
 
 // ── Storage ────────────────────────────────────────────────────────────────────
 const STORAGE_KEY="fitness_report_v1";
-function loadState() { try{const s=localStorage.getItem(STORAGE_KEY);return s?JSON.parse(s):null;}catch{return null;} }
-function saveState(profile,cycles) { try{localStorage.setItem(STORAGE_KEY,JSON.stringify({profile,cycles}));}catch{} }
+function loadState() {
+  try {
+    var s = localStorage.getItem(STORAGE_KEY);
+    if(s) return JSON.parse(s);
+    // Fallback to sessionStorage
+    var ss = sessionStorage.getItem(STORAGE_KEY);
+    if(ss) return JSON.parse(ss);
+  } catch(e) {}
+  return null;
+}
+function saveState(data) {
+  // Accept both saveState({profile,cycles}) and saveState(profile,cycles)
+  var payload = (data && typeof data === 'object' && !data.profile && arguments[1])
+    ? {profile: data, cycles: arguments[1]}
+    : data;
+  if(!payload) return;
+  var str = JSON.stringify(payload);
+  try { localStorage.setItem(STORAGE_KEY, str); } catch(e) {}
+  try { sessionStorage.setItem(STORAGE_KEY, str); } catch(e) {}
+}
 
 // ── Design tokens ──────────────────────────────────────────────────────────────
 const G = {
@@ -2205,7 +2226,23 @@ function App() {
   const [activeDayIdx,setActiveDayIdx]=useState(null);
   const [viewingCycleId,setViewingCycleId]=useState(null);
 
-  useEffect(()=>{saveState({profile,cycles});},[profile,cycles]);
+  useEffect(()=>{
+    saveState({profile,cycles});
+  },[profile,cycles]);
+
+  // Force-save on iOS PWA close/background
+  useEffect(()=>{
+    var handler = function() { saveState({profile,cycles}); };
+    window.addEventListener('pagehide', handler);
+    window.addEventListener('beforeunload', handler);
+    document.addEventListener('visibilitychange', function() {
+      if(document.visibilityState === 'hidden') saveState({profile,cycles});
+    });
+    return function() {
+      window.removeEventListener('pagehide', handler);
+      window.removeEventListener('beforeunload', handler);
+    };
+  },[profile,cycles]);
 
   const currentCycle=cycles.length>0?cycles[cycles.length-1]:null;
   const closedCycle=cycles.slice().reverse().find(c=>c.exported&&!c.completed)||null;
