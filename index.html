@@ -423,73 +423,184 @@ function ScreenImportExcel({onImport, onBack}) {
 
 // ── Screen: Setup ──────────────────────────────────────────────────────────────
 function ScreenSetup({onDone, onImport, prefill}) {
-  const [nome,setNome]=useState(prefill?.nome||"");
-  const [cognome,setCognome]=useState(prefill?.cognome||"");
-  const [altezza,setAltezza]=useState(prefill?.altezza||"");
-  const [dob,setDob]=useState(prefill?.dob||"");
-  const [visita,setVisita]=useState(prefill?.visitaNutrizionista||"");
-  const [mediaPesoPrec,setMediaPesoPrec]=useState(prefill?.mediaPesoPrecIniziale||"");
-  const age = dob.length===10?calcAge(dob):null;
-  const visitaOk = visita.length===10&&!!dateFromStr(visita);
-  const valid = nome.trim()&&cognome.trim()&&altezza&&dob.length===10&&!!dateFromStr(dob);
+  const [step, setStep] = useState(0);
+  const [nome, setNome] = useState(prefill?.nome||"");
+  const [cognome, setCognome] = useState(prefill?.cognome||"");
+  const [altezza, setAltezza] = useState(prefill?.altezza||"");
+  const [dob, setDob] = useState(prefill?.dob||"");
+  const [visita, setVisita] = useState(prefill?.visitaNutrizionista||"");
+  const [mediaPesoPrec, setMediaPesoPrec] = useState(prefill?.mediaPesoPrecIniziale||"");
+
+  const age = dob.length===10 ? calcAge(dob) : null;
+  const visitaOk = visita.length===10 && !!dateFromStr(visita);
   const isCompletion = !!prefill?._importedFromExcel;
 
-  return (
-    <div style={{minHeight:"100vh",background:G.bg}}>
-      <div className="safe-top" style={{background:`linear-gradient(150deg,${G.green},${G.gl})`,
-        paddingLeft:28,paddingRight:28,paddingBottom:36}}>
-        <div style={{fontSize:11,fontWeight:800,color:"rgba(255,255,255,0.6)",letterSpacing:1.5,marginBottom:10,textTransform:'uppercase'}}>
-          {isCompletion ? 'Completa il profilo' : 'Configurazione iniziale'}
+  // Steps: 0=anagrafica, 1=nascita+altezza, 2=visita, 3=peso prec
+  const STEPS = isCompletion ? [2] : [0, 1, 2, 3];
+  const currentStep = STEPS[step];
+  const totalSteps = STEPS.length;
+
+  const canNext = () => {
+    if(currentStep===0) return nome.trim() && cognome.trim();
+    if(currentStep===1) return altezza && dob.length===10 && !!dateFromStr(dob);
+    if(currentStep===2) return true; // visita optional at this step
+    return true; // peso optional
+  };
+
+  const handleNext = () => {
+    if(step < totalSteps-1) { setStep(s=>s+1); return; }
+    // Final submit
+    onDone({
+      nome:nome.trim(), cognome:cognome.trim(), altezza, dob,
+      visitaNutrizionista:visita, mediaPesoPrecIniziale:mediaPesoPrec
+    });
+  };
+
+  const handleBack = () => { if(step > 0) setStep(s=>s-1); };
+
+  const stepContent = () => {
+    // Step 0: nome + cognome
+    if(currentStep === 0) return (
+      <div>
+        <div style={{fontSize:26,fontWeight:900,color:G.text,letterSpacing:-0.5,marginBottom:8}}>
+          Come ti chiami?
         </div>
-        <div style={{fontSize:28,fontWeight:900,color:"#fff",lineHeight:1.2,letterSpacing:-0.5}}>
-          {isCompletion ? `Ciao, ${nome}! 👋` : 'Benvenuto!'}<br/>
-          {isCompletion ? 'Completa i\ndati mancanti' : 'Configuriamo\nil tuo profilo'}
+        <div style={{fontSize:14,color:G.text3,marginBottom:32}}>
+          Questi dati appaiono nei report Excel
         </div>
-        <div style={{fontSize:13,color:"rgba(255,255,255,0.75)",marginTop:10}}>
-          {isCompletion ? 'Dati importati dall\'Excel ✅' : 'Lo farai una volta sola ✅'}
+        <div style={{marginBottom:16}}>
+          <div style={{fontSize:12,fontWeight:700,color:G.text3,letterSpacing:0.8,textTransform:"uppercase",marginBottom:8}}>Nome</div>
+          <FInput value={nome} onChange={setNome} placeholder="Es. Riccardo"/>
+        </div>
+        <div>
+          <div style={{fontSize:12,fontWeight:700,color:G.text3,letterSpacing:0.8,textTransform:"uppercase",marginBottom:8}}>Cognome</div>
+          <FInput value={cognome} onChange={setCognome} placeholder="Es. Fava"/>
         </div>
       </div>
-      <div style={{padding:"20px 20px 40px"}}>
-        {!isCompletion && <>
-          <Card><div style={{fontSize:14,fontWeight:700,color:G.text,marginBottom:6}}>Nome</div><FInput value={nome} onChange={setNome} placeholder="Es. Riccardo"/></Card>
-          <Card><div style={{fontSize:14,fontWeight:700,color:G.text,marginBottom:6}}>Cognome</div><FInput value={cognome} onChange={setCognome} placeholder="Es. Fava"/></Card>
-          <Card><div style={{fontSize:14,fontWeight:700,color:G.text,marginBottom:6}}>Altezza (cm)</div><FInput value={altezza} onChange={setAltezza} placeholder="174" type="number"/></Card>
-        </>}
-        <Card>
-          <div style={{fontSize:14,fontWeight:700,color:G.text,marginBottom:3}}>Data di nascita</div>
-          <div style={{fontSize:12,color:G.text3,marginBottom:8}}>L'età viene calcolata automaticamente</div>
+    );
+
+    // Step 1: dob + altezza
+    if(currentStep === 1) return (
+      <div>
+        <div style={{fontSize:26,fontWeight:900,color:G.text,letterSpacing:-0.5,marginBottom:8}}>
+          Dati fisici
+        </div>
+        <div style={{fontSize:14,color:G.text3,marginBottom:32}}>
+          Usati per calcolare età e indici nel report
+        </div>
+        <div style={{marginBottom:16}}>
+          <div style={{fontSize:12,fontWeight:700,color:G.text3,letterSpacing:0.8,textTransform:"uppercase",marginBottom:8}}>Data di nascita</div>
           <FInput value={dob} onChange={v=>setDob(autoFormatDate(v))} placeholder="gg-mm-aaaa"/>
-          {age!==null&&age>=0&&<div style={{fontSize:13,color:G.green,fontWeight:700,marginTop:6,display:'flex',alignItems:'center',gap:4}}>✓ Età: {age} anni</div>}
-        </Card>
-        <Card>
-          <div style={{fontSize:14,fontWeight:700,color:G.text,marginBottom:3}}>📅 Data visita nutrizionista</div>
-          <div style={{fontSize:12,color:G.text3,marginBottom:8}}>Il ciclo parte il giorno dopo questa data</div>
+          {age!==null&&age>=0&&(
+            <div style={{fontSize:13,color:G.green,fontWeight:700,marginTop:8,display:"flex",alignItems:"center",gap:6}}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><polyline points="20,6 9,17 4,12" stroke="#00C896" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+              {age} anni
+            </div>
+          )}
+        </div>
+        <div>
+          <div style={{fontSize:12,fontWeight:700,color:G.text3,letterSpacing:0.8,textTransform:"uppercase",marginBottom:8}}>Altezza (cm)</div>
+          <FInput value={altezza} onChange={setAltezza} placeholder="174" type="number"/>
+        </div>
+      </div>
+    );
+
+    // Step 2: visita nutrizionista
+    if(currentStep === 2) return (
+      <div>
+        <div style={{fontSize:26,fontWeight:900,color:G.text,letterSpacing:-0.5,marginBottom:8}}>
+          Data visita
+        </div>
+        <div style={{fontSize:14,color:G.text3,marginBottom:32,lineHeight:1.6}}>
+          Il ciclo bisettimanale parte il giorno dopo la visita dal nutrizionista. Puoi aggiungerla dopo dal profilo.
+        </div>
+        <div>
+          <div style={{fontSize:12,fontWeight:700,color:G.text3,letterSpacing:0.8,textTransform:"uppercase",marginBottom:8}}>Data visita (opzionale)</div>
           <FInput value={visita} onChange={v=>setVisita(autoFormatDate(v))} placeholder="gg-mm-aaaa"/>
-          {visitaOk&&<div style={{fontSize:13,color:G.green,fontWeight:700,marginTop:6}}>✓ Visita: {visita}</div>}
-        </Card>
-        {!isCompletion && <Card>
-          <div style={{fontSize:14,fontWeight:700,color:G.text,marginBottom:3}}>Media peso settimana precedente</div>
-          <div style={{fontSize:12,color:G.text3,marginBottom:8}}>Opzionale — se disponibile</div>
+          {visitaOk&&(
+            <div style={{marginTop:12,background:G.cardGreen,borderRadius:12,padding:"12px 14px",border:"1px solid "+G.green+"44"}}>
+              <div style={{fontSize:13,color:G.green,fontWeight:700}}>Il ciclo inizierà il</div>
+              <div style={{fontSize:17,fontWeight:900,color:G.text,marginTop:2}}>
+                {(()=>{const v=dateFromStr(visita);if(!v)return "";const s=new Date(v);s.setDate(v.getDate()+1);return strFromDate(s);})()}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+
+    // Step 3: media peso precedente
+    if(currentStep === 3) return (
+      <div>
+        <div style={{fontSize:26,fontWeight:900,color:G.text,letterSpacing:-0.5,marginBottom:8}}>
+          Peso di partenza
+        </div>
+        <div style={{fontSize:14,color:G.text3,marginBottom:32,lineHeight:1.6}}>
+          La media del peso dell'ultima settimana prima di iniziare. Opzionale — puoi saltare.
+        </div>
+        <div>
+          <div style={{fontSize:12,fontWeight:700,color:G.text3,letterSpacing:0.8,textTransform:"uppercase",marginBottom:8}}>Media peso (kg) — opzionale</div>
           <FInput value={mediaPesoPrec} onChange={setMediaPesoPrec} placeholder="Es. 71.55" type="number"/>
-        </Card>}
-        <div style={{marginBottom:12}}/>
-        <Btn onClick={()=>onDone({nome:nome.trim(),cognome:cognome.trim(),altezza,dob,visitaNutrizionista:visita,mediaPesoPrecIniziale:mediaPesoPrec})} disabled={!valid}>
-          {isCompletion ? 'Completa →' : 'Inizia →'}
+        </div>
+      </div>
+    );
+
+    return null;
+  };
+
+  return (
+    <div style={{minHeight:"100vh",background:G.bg,display:"flex",flexDirection:"column"}}>
+      {/* Header */}
+      <div style={{
+        paddingTop:"calc(env(safe-area-inset-top,20px) + 20px)",
+        paddingLeft:24,paddingRight:24,paddingBottom:20,
+        borderBottom:"1px solid "+G.border,
+      }}>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}>
+          {step > 0 ? (
+            <button onClick={handleBack} style={{background:"none",border:"none",color:G.green,
+              fontSize:15,fontWeight:700,cursor:"pointer",padding:"4px 0",display:"flex",alignItems:"center",gap:4}}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><polyline points="15,18 9,12 15,6" stroke="#00C896" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+              Indietro
+            </button>
+          ) : <div/>}
+          <div style={{fontSize:13,color:G.text3,fontWeight:600}}>
+            {step+1} di {totalSteps}
+          </div>
+        </div>
+        {/* Progress bar */}
+        <div style={{height:3,background:"rgba(255,255,255,0.08)",borderRadius:2}}>
+          <div style={{height:3,background:G.green,borderRadius:2,
+            width:((step+1)/totalSteps*100)+"%",transition:"width 0.3s ease"}}/>
+        </div>
+      </div>
+
+      {/* Content */}
+      <div style={{flex:1,padding:"36px 24px 24px",overflowY:"auto"}}>
+        {stepContent()}
+      </div>
+
+      {/* Bottom actions */}
+      <div style={{padding:"16px 24px",paddingBottom:"calc(env(safe-area-inset-bottom,16px) + 16px)",
+        borderTop:"1px solid "+G.border,background:G.bg}}>
+        <Btn onClick={handleNext} disabled={!canNext()}>
+          {step===totalSteps-1 ? "Inizia →" : "Avanti →"}
         </Btn>
-        {!isCompletion && <>
-          <div style={{height:12}}/>
-          <button onClick={onImport} style={{width:"100%",padding:"14px",borderRadius:14,
-            border:`1.5px solid ${G.green}`,background:"transparent",color:G.green,
-            fontSize:15,fontWeight:700,cursor:"pointer",display:'flex',alignItems:'center',justifyContent:'center',gap:8}}>
-            📊 Importa da Excel precedente
+        {step===0 && !isCompletion && (
+          <button onClick={onImport} style={{
+            width:"100%",marginTop:12,padding:"12px",borderRadius:14,
+            border:"none",background:"transparent",
+            color:G.text3,fontSize:13,fontWeight:600,cursor:"pointer",
+          }}>
+            Hai già dei cicli Excel? Importa qui →
           </button>
-        </>}
+        )}
       </div>
     </div>
   );
 }
 
-// ── PassiCard — always visible, inline editable ────────────────────────────────
+
 function PassiCard({cycle, onSave}) {
   const [editing, setEditing] = useState(false);
   const [s1, setS1] = useState(cycle.mediaPassiSett1||"");
@@ -748,6 +859,18 @@ function ScreenDashboard({profile,cycles,onOpenDay,onOpenFeedback,onNewCycle,onO
           </>
         )}
 
+        {/* Quick import link when few/no historical cycles */}
+        {cycles.filter(c=>c.completed).length===0&&profile&&(
+          <button onClick={()=>onOpenPrevious&&onOpenImport&&onOpenImport()} style={{
+            width:"100%",padding:"12px 16px",borderRadius:14,marginBottom:8,
+            border:"1px solid "+G.border,background:"transparent",
+            color:G.text3,fontSize:13,fontWeight:600,cursor:"pointer",textAlign:"left",
+            display:"flex",justifyContent:"space-between",alignItems:"center",
+          }}>
+            <span>Importa cicli storici da Excel</span>
+            <span style={{color:G.green}}>›</span>
+          </button>
+        )}
         {(!cycle||cycle.exported)&&(
           closedCycle ? (
             <div style={{background:"#FFF8E1",borderRadius:18,padding:"18px 20px",marginTop:cycle?8:0,
@@ -1176,7 +1299,7 @@ function ScreenReport({profile,cycle,onConfirm,onBack}) {
 }
 
 // ── Screen: Profilo ────────────────────────────────────────────────────────────
-function ScreenProfilo({profile,onSave,onBack}) {
+function ScreenProfilo({profile,onSave,onBack,onImport}) {
   const [visita,setVisita]=useState(profile.visitaNutrizionista||"");
   const visitaOk=visita.length===10&&!!dateFromStr(visita);
   function getNextCycleStart(vs) {
@@ -1250,6 +1373,14 @@ function ScreenProfilo({profile,onSave,onBack}) {
         </Card>
 
         <Btn onClick={()=>onSave({...profile,visitaNutrizionista:visita})} disabled={!visitaOk}>Salva →</Btn>
+        <div style={{marginTop:32,paddingTop:20,borderTop:"1px solid "+G.border}}>
+          <button onClick={()=>{if(window.confirm("Vuoi resettare tutti i dati? Questa azione è irreversibile.")){localStorage.clear();sessionStorage.clear();window.location.reload();}}} style={{
+            width:"100%",padding:"12px",borderRadius:12,border:"1px solid rgba(255,107,107,0.3)",
+            background:"rgba(255,107,107,0.06)",color:G.coral,fontSize:13,fontWeight:600,cursor:"pointer",
+          }}>
+            Reimposta app e cancella dati
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -2256,9 +2387,23 @@ function App() {
     setScreen("main");
   };
   const handleExcelImport=(prof,cycs)=>{
-    setProfile(p=>({...p,...prof}));
-    setCycles(cycs);
-    setScreen("main");
+    // Merge imported cycles with existing ones, avoid duplicates by startDate
+    setCycles(prev=>{
+      const existing = prev.filter(c=>c.completed||c.exported);
+      const merged = [...existing];
+      cycs.forEach(newC=>{
+        const dup = merged.find(c=>c.startDate===newC.startDate);
+        if(!dup) merged.push(newC);
+      });
+      // Re-assign sequential IDs sorted by date
+      merged.sort((a,b)=>{
+        const da=dateFromStr(a.startDate), db=dateFromStr(b.startDate);
+        return (da||0)-(db||0);
+      });
+      return merged.map((c,i)=>({...c,id:i}));
+    });
+    if(!profile) setProfile(p=>({...p,...prof}));
+    setScreen(profile?"main":"setup");
   };
   const handleDeleteCycle=id=>{setCycles(p=>{const f=p.filter(c=>c.id!==id);return f.map((c,i)=>({...c,id:i}));});};
   const handleNewCycle=()=>{
@@ -2304,7 +2449,7 @@ function App() {
   };
   const handleProssimaVisita=v=>{if(v&&dateFromStr(v))setProfile(p=>({...p,visitaNutrizionista:v}));setScreen("main");};
 
-  if(screen==="import") return <ScreenImportExcel onImport={handleExcelImport} onBack={()=>setScreen(profile?"main":"setup")}/>;
+  if(screen==="import") return <ScreenImportExcel onImport={handleExcelImport} onBack={()=>setScreen(profile?"main":"setup")} existingCycles={cycles}/>;
   if(!profile || screen==="setup"||screen==="setup_complete") return <ScreenSetup
     onDone={handleSetup}
     onImport={()=>setScreen("import")}
@@ -2314,7 +2459,7 @@ function App() {
   if(screen==="feedback"&&closedCycle) return <ScreenFeedback cycle={closedCycle} onSave={handleSaveFeedback} onBack={()=>setScreen("main")}/>;
   if(screen==="chiusura"&&closedCycle) return <ScreenReport profile={profile} cycle={closedCycle} onConfirm={handleConfirmExport} onBack={()=>setScreen("main")}/>;
   if(screen==="prossima") return <ScreenProssimaVisita ultimaVisita={profile.visitaNutrizionista} onSave={handleProssimaVisita}/>;
-  if(screen==="profilo") return <ScreenProfilo profile={profile} onSave={p=>setProfile(p)} onBack={()=>setScreen("main")}/>;
+  if(screen==="profilo") return <ScreenProfilo profile={profile} onSave={p=>setProfile(p)} onBack={()=>setScreen("main")} onImport={()=>setScreen("import")}/>;
   if(screen==="previous"){const c=cycles.find(c=>c.id===viewingCycleId);if(c)return <ScreenPrevious cycle={c} profile={profile} onConfirm={c.exported&&!c.completed?()=>setScreen("chiusura"):null} onBack={()=>setScreen("main")}/>;}
 
   const TAB_H=70;
@@ -2331,10 +2476,10 @@ function App() {
       onOpenReport={()=>setScreen("chiusura")} onOpenPrevious={id=>{setViewingCycleId(id);setScreen("previous");}}
       onOpenProfilo={()=>setTab("profilo_tab")} onOpenGrafico={()=>setTab("grafico")}
       onOpenDieta={()=>setTab("dieta")} onChiudiCiclo={handleChiudiCiclo}
-      onSavePassi={handleSavePassi} onDeleteCycle={handleDeleteCycle}/>;
+      onSavePassi={handleSavePassi} onDeleteCycle={handleDeleteCycle} onOpenImport={()=>setScreen("import")}/>;
     if(tab==="grafico") return <ScreenGrafico cycles={cycles} onBack={null}/>;
     if(tab==="dieta") return <ScreenDieta onBack={null}/>;
-    return <ScreenProfilo profile={profile} onSave={p=>setProfile(p)} onBack={null}/>;
+    return <ScreenProfilo profile={profile} onSave={p=>setProfile(p)} onBack={null} onImport={()=>setScreen("import")}/>;
   };
   return (
     <div style={{minHeight:"100vh",background:G.bg,paddingBottom:"calc("+TAB_H+"px + env(safe-area-inset-bottom,16px) + 20px)"}}>
