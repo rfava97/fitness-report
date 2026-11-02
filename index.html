@@ -3,9 +3,6 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="Report Fit">
 <meta name="apple-mobile-web-app-capable" content="yes"/>
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
 <meta name="apple-mobile-web-app-title" content="Report Fit"/>
@@ -47,11 +44,7 @@ input[type=number]::-webkit-inner-spin-button{opacity:1;}
 <body>
 <div id="root"></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-
-<script type="text/babel">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.mi
 const { useState, useEffect, useRef } = React;
 
 // ── Proxy URL — punta al tuo progetto Vercel ──────────────────────────────────
@@ -110,32 +103,13 @@ function writeToAppleHealth(date, weightKg) {
 
 // ── Storage ────────────────────────────────────────────────────────────────────
 const STORAGE_KEY="fitness_report_v1";
-function loadState() {
-  try {
-    var s = localStorage.getItem(STORAGE_KEY);
-    if(s) return JSON.parse(s);
-    // Fallback to sessionStorage
-    var ss = sessionStorage.getItem(STORAGE_KEY);
-    if(ss) return JSON.parse(ss);
-  } catch(e) {}
-  return null;
-}
-function saveState(data) {
-  // Accept both saveState({profile,cycles}) and saveState(profile,cycles)
-  var payload = (data && typeof data === 'object' && !data.profile && arguments[1])
-    ? {profile: data, cycles: arguments[1]}
-    : data;
-  if(!payload) return;
-  var str = JSON.stringify(payload);
-  try { localStorage.setItem(STORAGE_KEY, str); } catch(e) {}
-  try { sessionStorage.setItem(STORAGE_KEY, str); } catch(e) {}
-}
+function loadState() { try{const s=localStorage.getItem(STORAGE_KEY);return s?JSON.parse(s):null;}catch{return null;} }
+function saveState(profile,cycles) { try{localStorage.setItem(STORAGE_KEY,JSON.stringify({profile,cycles}));}catch{} }
 
 // ── Design tokens ──────────────────────────────────────────────────────────────
 const G = {
   green:'#00C896', gl:'#00A878', gb:'#00E5AA',
-  bg:'#0A0A0F', card:'#1C1C28', cardGreen:'#0D2A1A',
-  surface:'#161622',
+  bg:'#0A0A0F', card:'#1C1C28', cardGreen:'#0D2A1A', surface:'#161622',
   text:'rgba(255,255,255,0.95)', text2:'rgba(255,255,255,0.6)', text3:'rgba(255,255,255,0.35)',
   border:'rgba(255,255,255,0.1)', red:'#FF6B6B', coral:'#FF6B6B', coralDim:'rgba(255,107,107,0.12)',
   orange:'#FF9F0A', orangeDim:'rgba(255,159,10,0.12)',
@@ -430,44 +404,26 @@ function ScreenSetup({onDone, onImport, prefill}) {
   const [dob, setDob] = useState(prefill?.dob||"");
   const [visita, setVisita] = useState(prefill?.visitaNutrizionista||"");
   const [mediaPesoPrec, setMediaPesoPrec] = useState(prefill?.mediaPesoPrecIniziale||"");
-
   const age = dob.length===10 ? calcAge(dob) : null;
   const visitaOk = visita.length===10 && !!dateFromStr(visita);
   const isCompletion = !!prefill?._importedFromExcel;
-
-  // Steps: 0=anagrafica, 1=nascita+altezza, 2=visita, 3=peso prec
-  const STEPS = isCompletion ? [2] : [0, 1, 2, 3];
+  const STEPS = isCompletion ? [2] : [0,1,2,3];
   const currentStep = STEPS[step];
   const totalSteps = STEPS.length;
-
   const canNext = () => {
-    if(currentStep===0) return nome.trim() && cognome.trim();
-    if(currentStep===1) return altezza && dob.length===10 && !!dateFromStr(dob);
-    if(currentStep===2) return true; // visita optional at this step
-    return true; // peso optional
+    if(currentStep===0) return nome.trim()&&cognome.trim();
+    if(currentStep===1) return altezza&&dob.length===10&&!!dateFromStr(dob);
+    return true;
   };
-
   const handleNext = () => {
-    if(step < totalSteps-1) { setStep(s=>s+1); return; }
-    // Final submit
-    onDone({
-      nome:nome.trim(), cognome:cognome.trim(), altezza, dob,
-      visitaNutrizionista:visita, mediaPesoPrecIniziale:mediaPesoPrec
-    });
+    if(step<totalSteps-1){setStep(s=>s+1);return;}
+    onDone({nome:nome.trim(),cognome:cognome.trim(),altezza,dob,visitaNutrizionista:visita,mediaPesoPrecIniziale:mediaPesoPrec});
   };
-
-  const handleBack = () => { if(step > 0) setStep(s=>s-1); };
-
   const stepContent = () => {
-    // Step 0: nome + cognome
-    if(currentStep === 0) return (
+    if(currentStep===0) return (
       <div>
-        <div style={{fontSize:26,fontWeight:900,color:G.text,letterSpacing:-0.5,marginBottom:8}}>
-          Come ti chiami?
-        </div>
-        <div style={{fontSize:14,color:G.text3,marginBottom:32}}>
-          Questi dati appaiono nei report Excel
-        </div>
+        <div style={{fontSize:26,fontWeight:900,color:G.text,letterSpacing:-0.5,marginBottom:8}}>Come ti chiami?</div>
+        <div style={{fontSize:14,color:G.text3,marginBottom:32}}>Questi dati appaiono nei report Excel</div>
         <div style={{marginBottom:16}}>
           <div style={{fontSize:12,fontWeight:700,color:G.text3,letterSpacing:0.8,textTransform:"uppercase",marginBottom:8}}>Nome</div>
           <FInput value={nome} onChange={setNome} placeholder="Es. Riccardo"/>
@@ -478,25 +434,14 @@ function ScreenSetup({onDone, onImport, prefill}) {
         </div>
       </div>
     );
-
-    // Step 1: dob + altezza
-    if(currentStep === 1) return (
+    if(currentStep===1) return (
       <div>
-        <div style={{fontSize:26,fontWeight:900,color:G.text,letterSpacing:-0.5,marginBottom:8}}>
-          Dati fisici
-        </div>
-        <div style={{fontSize:14,color:G.text3,marginBottom:32}}>
-          Usati per calcolare età e indici nel report
-        </div>
+        <div style={{fontSize:26,fontWeight:900,color:G.text,letterSpacing:-0.5,marginBottom:8}}>Dati fisici</div>
+        <div style={{fontSize:14,color:G.text3,marginBottom:32}}>Usati per calcolare età e indici nel report</div>
         <div style={{marginBottom:16}}>
           <div style={{fontSize:12,fontWeight:700,color:G.text3,letterSpacing:0.8,textTransform:"uppercase",marginBottom:8}}>Data di nascita</div>
           <FInput value={dob} onChange={v=>setDob(autoFormatDate(v))} placeholder="gg-mm-aaaa"/>
-          {age!==null&&age>=0&&(
-            <div style={{fontSize:13,color:G.green,fontWeight:700,marginTop:8,display:"flex",alignItems:"center",gap:6}}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><polyline points="20,6 9,17 4,12" stroke="#00C896" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
-              {age} anni
-            </div>
-          )}
+          {age!==null&&age>=0&&<div style={{fontSize:13,color:G.green,fontWeight:700,marginTop:8}}>{age} anni</div>}
         </div>
         <div>
           <div style={{fontSize:12,fontWeight:700,color:G.text3,letterSpacing:0.8,textTransform:"uppercase",marginBottom:8}}>Altezza (cm)</div>
@@ -504,94 +449,57 @@ function ScreenSetup({onDone, onImport, prefill}) {
         </div>
       </div>
     );
-
-    // Step 2: visita nutrizionista
-    if(currentStep === 2) return (
+    if(currentStep===2) return (
       <div>
-        <div style={{fontSize:26,fontWeight:900,color:G.text,letterSpacing:-0.5,marginBottom:8}}>
-          Data visita
-        </div>
-        <div style={{fontSize:14,color:G.text3,marginBottom:32,lineHeight:1.6}}>
-          Il ciclo bisettimanale parte il giorno dopo la visita dal nutrizionista. Puoi aggiungerla dopo dal profilo.
-        </div>
-        <div>
-          <div style={{fontSize:12,fontWeight:700,color:G.text3,letterSpacing:0.8,textTransform:"uppercase",marginBottom:8}}>Data visita (opzionale)</div>
-          <FInput value={visita} onChange={v=>setVisita(autoFormatDate(v))} placeholder="gg-mm-aaaa"/>
-          {visitaOk&&(
-            <div style={{marginTop:12,background:G.cardGreen,borderRadius:12,padding:"12px 14px",border:"1px solid "+G.green+"44"}}>
-              <div style={{fontSize:13,color:G.green,fontWeight:700}}>Il ciclo inizierà il</div>
-              <div style={{fontSize:17,fontWeight:900,color:G.text,marginTop:2}}>
-                {(()=>{const v=dateFromStr(visita);if(!v)return "";const s=new Date(v);s.setDate(v.getDate()+1);return strFromDate(s);})()}
-              </div>
+        <div style={{fontSize:26,fontWeight:900,color:G.text,letterSpacing:-0.5,marginBottom:8}}>Data visita</div>
+        <div style={{fontSize:14,color:G.text3,marginBottom:32,lineHeight:1.6}}>Il ciclo parte il giorno dopo la visita. Puoi aggiungerla dopo dal profilo.</div>
+        <div style={{fontSize:12,fontWeight:700,color:G.text3,letterSpacing:0.8,textTransform:"uppercase",marginBottom:8}}>Data visita (opzionale)</div>
+        <FInput value={visita} onChange={v=>setVisita(autoFormatDate(v))} placeholder="gg-mm-aaaa"/>
+        {visitaOk&&(
+          <div style={{marginTop:12,background:G.cardGreen,borderRadius:12,padding:"12px 14px",border:"1px solid "+G.green+"44"}}>
+            <div style={{fontSize:13,color:G.green,fontWeight:700}}>Il ciclo inizierà il</div>
+            <div style={{fontSize:17,fontWeight:900,color:G.text,marginTop:2}}>
+              {(()=>{const v=dateFromStr(visita);if(!v)return "";const s=new Date(v);s.setDate(v.getDate()+1);return strFromDate(s);})()}
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
     );
-
-    // Step 3: media peso precedente
-    if(currentStep === 3) return (
+    if(currentStep===3) return (
       <div>
-        <div style={{fontSize:26,fontWeight:900,color:G.text,letterSpacing:-0.5,marginBottom:8}}>
-          Peso di partenza
-        </div>
-        <div style={{fontSize:14,color:G.text3,marginBottom:32,lineHeight:1.6}}>
-          La media del peso dell'ultima settimana prima di iniziare. Opzionale — puoi saltare.
-        </div>
-        <div>
-          <div style={{fontSize:12,fontWeight:700,color:G.text3,letterSpacing:0.8,textTransform:"uppercase",marginBottom:8}}>Media peso (kg) — opzionale</div>
-          <FInput value={mediaPesoPrec} onChange={setMediaPesoPrec} placeholder="Es. 71.55" type="number"/>
-        </div>
+        <div style={{fontSize:26,fontWeight:900,color:G.text,letterSpacing:-0.5,marginBottom:8}}>Peso di partenza</div>
+        <div style={{fontSize:14,color:G.text3,marginBottom:32,lineHeight:1.6}}>Media del peso dell'ultima settimana. Opzionale.</div>
+        <div style={{fontSize:12,fontWeight:700,color:G.text3,letterSpacing:0.8,textTransform:"uppercase",marginBottom:8}}>Media peso (kg) — opzionale</div>
+        <FInput value={mediaPesoPrec} onChange={setMediaPesoPrec} placeholder="Es. 71.55" type="number"/>
       </div>
     );
-
     return null;
   };
-
   return (
     <div style={{minHeight:"100vh",background:G.bg,display:"flex",flexDirection:"column"}}>
-      {/* Header */}
-      <div style={{
-        paddingTop:"calc(env(safe-area-inset-top,20px) + 20px)",
-        paddingLeft:24,paddingRight:24,paddingBottom:20,
-        borderBottom:"1px solid "+G.border,
-      }}>
+      <div style={{paddingTop:"calc(env(safe-area-inset-top,20px) + 20px)",paddingLeft:24,paddingRight:24,paddingBottom:20,borderBottom:"1px solid "+G.border}}>
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}>
-          {step > 0 ? (
-            <button onClick={handleBack} style={{background:"none",border:"none",color:G.green,
-              fontSize:15,fontWeight:700,cursor:"pointer",padding:"4px 0",display:"flex",alignItems:"center",gap:4}}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><polyline points="15,18 9,12 15,6" stroke="#00C896" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-              Indietro
-            </button>
-          ) : <div/>}
-          <div style={{fontSize:13,color:G.text3,fontWeight:600}}>
-            {step+1} di {totalSteps}
-          </div>
+          {step>0?(<button onClick={()=>setStep(s=>s-1)} style={{background:"none",border:"none",color:G.green,fontSize:15,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:4}}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><polyline points="15,18 9,12 15,6" stroke="#00C896" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>Indietro
+          </button>):<div/>}
+          <div style={{fontSize:13,color:G.text3,fontWeight:600}}>{step+1} di {totalSteps}</div>
         </div>
-        {/* Progress bar */}
         <div style={{height:3,background:"rgba(255,255,255,0.08)",borderRadius:2}}>
-          <div style={{height:3,background:G.green,borderRadius:2,
-            width:((step+1)/totalSteps*100)+"%",transition:"width 0.3s ease"}}/>
+          <div style={{height:3,background:G.green,borderRadius:2,width:((step+1)/totalSteps*100)+"%",transition:"width 0.3s ease"}}/>
         </div>
       </div>
-
-      {/* Content */}
-      <div style={{flex:1,padding:"36px 24px 24px",overflowY:"auto"}}>
-        {stepContent()}
-      </div>
-
-      {/* Bottom actions */}
-      <div style={{padding:"16px 24px",paddingBottom:"calc(env(safe-area-inset-bottom,16px) + 16px)",
-        borderTop:"1px solid "+G.border,background:G.bg}}>
-        <Btn onClick={handleNext} disabled={!canNext()}>
-          {step===totalSteps-1 ? "Inizia →" : "Avanti →"}
-        </Btn>
-
+      <div style={{flex:1,padding:"36px 24px 24px",overflowY:"auto"}}>{stepContent()}</div>
+      <div style={{padding:"16px 24px",paddingBottom:"calc(env(safe-area-inset-bottom,16px) + 16px)",borderTop:"1px solid "+G.border,background:G.bg}}>
+        <Btn onClick={handleNext} disabled={!canNext()}>{step===totalSteps-1?"Inizia →":"Avanti →"}</Btn>
+        {step===0&&!isCompletion&&(
+          <button onClick={onImport} style={{width:"100%",marginTop:12,padding:"12px",borderRadius:14,border:"none",background:"transparent",color:G.text3,fontSize:13,fontWeight:600,cursor:"pointer"}}>
+            Hai già dei cicli Excel? Importa qui →
+          </button>
+        )}
       </div>
     </div>
   );
 }
-
 
 function PassiCard({cycle, onSave}) {
   const [editing, setEditing] = useState(false);
@@ -700,7 +608,8 @@ function ScreenDashboard({profile,cycles,onOpenDay,onOpenFeedback,onNewCycle,onO
   return (
     <div style={{minHeight:"100vh",background:G.bg,paddingBottom:40}}>
       {/* Hero */}
-      <div style={{background:"linear-gradient(160deg,#0B1E14 0%,#0D2A1A 50%,#0A1810 100%)",
+      <div style={{
+        background:"linear-gradient(160deg,#0B1E14 0%,#0D2A1A 50%,#0A1810 100%)",
         paddingTop:"calc(env(safe-area-inset-top,20px) + 20px)",
         paddingLeft:20,paddingRight:20,paddingBottom:24,
         borderBottom:"1px solid rgba(0,200,150,0.12)"}}>
@@ -740,7 +649,6 @@ function ScreenDashboard({profile,cycles,onOpenDay,onOpenFeedback,onNewCycle,onO
           </button>
         )}
       </div>
-
       <div style={{padding:"16px 18px 0"}}>
         {cycle&&(
           <>
@@ -793,6 +701,15 @@ function ScreenDashboard({profile,cycles,onOpenDay,onOpenFeedback,onNewCycle,onO
             <PassiCard cycle={cycle} onSave={onSavePassi}/>
 
             {/* Visita banner */}
+            {cycle&&!cycle.exported&&!showVisitaBanner&&(
+              <button onClick={()=>{ if(window.confirm("Chiudere il ciclo ora? I giorni senza dati verranno esclusi dalle medie.")) onChiudiCiclo(); }}
+                style={{width:"100%",padding:"14px 18px",borderRadius:16,border:"1px solid rgba(255,255,255,0.12)",marginBottom:12,
+                background:"rgba(255,255,255,0.06)",color:"#fff",fontSize:14,fontWeight:600,cursor:"pointer",
+                display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                <span>Chiudi ciclo ora (visita dal nutrizionista)</span>
+                <span style={{fontSize:20,opacity:0.6}}>›</span>
+              </button>
+            )}
             {showVisitaBanner&&(
               <button onClick={onChiudiCiclo} style={{width:"100%",padding:"16px 18px",borderRadius:16,border:"none",marginBottom:12,
                 background:`linear-gradient(135deg,${G.orange},#E65100)`,color:"#fff",fontSize:15,fontWeight:700,cursor:"pointer",
@@ -870,7 +787,7 @@ function ScreenDashboard({profile,cycles,onOpenDay,onOpenFeedback,onNewCycle,onO
               border:`2px dashed ${G.green}`,background:G.cardGreen,
               color:G.green,fontSize:16,fontWeight:800,cursor:"pointer",marginTop:cycle?8:0,
               display:'flex',alignItems:'center',justifyContent:'center',gap:10}}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><line x1="12" y1="5" x2="12" y2="19" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/><line x1="5" y1="12" x2="19" y2="12" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/></svg>
+              <span style={{fontSize:24}}>➕</span>
               {cycle?"Inizia nuovo ciclo bisettimanale":"Inizia il primo ciclo"}
             </button>
           )
@@ -1279,7 +1196,7 @@ function ScreenReport({profile,cycle,onConfirm,onBack}) {
 }
 
 // ── Screen: Profilo ────────────────────────────────────────────────────────────
-function ScreenProfilo({profile,onSave,onBack,onImport}) {
+function ScreenProfilo({profile,onSave,onBack}) {
   const [visita,setVisita]=useState(profile.visitaNutrizionista||"");
   const visitaOk=visita.length===10&&!!dateFromStr(visita);
   function getNextCycleStart(vs) {
@@ -1352,23 +1269,7 @@ function ScreenProfilo({profile,onSave,onBack,onImport}) {
           </div>}
         </Card>
 
-        <SectionLabel>Storico Excel</SectionLabel>
-        <Card style={{marginBottom:16}}>
-          <div style={{fontSize:14,fontWeight:700,color:G.text,marginBottom:4}}>Importa cicli da Excel</div>
-          <div style={{fontSize:12,color:G.text3,marginBottom:12,lineHeight:1.6}}>
-            Aggiungi cicli storici importando i file Excel generati dall'app
-          </div>
-          <Btn variant="outline" small onClick={onImport}>Importa da Excel</Btn>
-        </Card>
         <Btn onClick={()=>onSave({...profile,visitaNutrizionista:visita})} disabled={!visitaOk}>Salva →</Btn>
-        <div style={{marginTop:32,paddingTop:20,borderTop:"1px solid "+G.border}}>
-          <button onClick={()=>{if(window.confirm("Vuoi resettare tutti i dati? Questa azione è irreversibile.")){localStorage.clear();sessionStorage.clear();window.location.reload();}}} style={{
-            width:"100%",padding:"12px",borderRadius:12,border:"1px solid rgba(255,107,107,0.3)",
-            background:"rgba(255,107,107,0.06)",color:G.coral,fontSize:13,fontWeight:600,cursor:"pointer",
-          }}>
-            Reimposta app e cancella dati
-          </button>
-        </div>
       </div>
     </div>
   );
@@ -1400,7 +1301,6 @@ const KCAL_DB = {
   "patate lesse":{"k":79,"p":2.1,"c":17.0,"g":0.1},
   "gnocchi di patate":{"k":130,"p":2.8,"c":28.6,"g":0.3},
   "legumi cotti":{"k":116,"p":7.7,"c":20.0,"g":0.5},
-  "oro saiwa plasmon":{"k":435,"p":8.5,"c":75.0,"g":12.0},
   "oro saiwa o plasmon":{"k":435,"p":8.5,"c":75.0,"g":12.0},
   "maltodestrine":{"k":380,"p":0.0,"c":95.0,"g":0.0},
   "carne magra":{"k":103,"p":22.3,"c":0.0,"g":1.2},
@@ -1489,6 +1389,94 @@ function parseMealOption(str) {
 
 // ── Diet storage ───────────────────────────────────────────────────────────────
 
+function parseComponents(label) {
+  var parts = [];
+  label.split('+').forEach(function(seg) {
+    var s = seg.trim();
+    var m = s.match(/^([0-9]+)\s*(?:ml|gr?)\s+(.+)$/i);
+    if(m) { parts.push({grams:parseInt(m[1]), food:m[2].toLowerCase().trim()}); return; }
+    var m2 = s.match(/^([0-9]+)\s+(uov[ao])\s*(.*)$/i);
+    if(m2) { parts.push({grams:parseInt(m2[1])*60, food:('uova '+m2[3]).toLowerCase().trim()}); return; }
+  });
+  return parts;
+}
+
+function calcMulti(label) {
+  var parts = parseComponents(label);
+  if(!parts.length) { var p = parseMealOption(label); return p.grams ? calcKcal(p.food, p.grams) : null; }
+  var total = {kcal:0,p:0,c:0,g:0}; var any = false;
+  parts.forEach(function(pt) { var n=calcKcal(pt.food,pt.grams); if(n){total.kcal+=n.kcal;total.p+=n.p;total.c+=n.c;total.g+=n.g;any=true;} });
+  if(!any) return null;
+  return {kcal:Math.round(total.kcal),p:Math.round(total.p*10)/10,c:Math.round(total.c*10)/10,g:Math.round(total.g*10)/10};
+}
+
+function getLegumiProtein(label) {
+  var m = label.match(/([0-9]+)\s*gr?\s+LEGUMI/i);
+  if(!m) return 0;
+  var n = calcKcal('legumi cotti', parseInt(m[1]));
+  return n ? n.p : 0;
+}
+
+function getReductionFromNote(note) {
+  if(!note) return {grams:0, target:''};
+  var mCucchiai = note.match(/usa\s+([0-9]+)\s+cucchiai[^
+]*olio/i);
+  if(mCucchiai) return {grams:parseInt(mCucchiai[1])*10, target:'olio'};
+  var m = note.match(/diminuisci[^0-9]*([0-9]+)\s*(?:gr|cucchiai?|porzione)?/i);
+  if(!m) return {grams:0, target:''};
+  var grams = parseInt(m[1]);
+  var target = '';
+  if(note.toLowerCase().indexOf('proteic') >= 0) target = 'proteica';
+  else if(note.toLowerCase().indexOf('carboidrat') >= 0) target = 'carboidrati';
+  else if(note.toLowerCase().indexOf('olio') >= 0) target = 'olio';
+  return {grams:grams, target:target};
+}
+
+function getProteinReduction(note) { return getReductionFromNote(note).grams; }
+
+
+const FRUTTI = [
+  {n:"Anguria",f:"anguria"},{n:"Fragola",f:"fragola"},{n:"Melone",f:"melone"},
+  {n:"Pesca",f:"pesca"},{n:"Pesca noce",f:"pesca noce"},{n:"Albicocca",f:"albicocca"},
+  {n:"Pompelmo",f:"pompelmo"},{n:"Lampone",f:"lampone"},{n:"Mora",f:"mora"},
+  {n:"Mela",f:"mela"},{n:"Pera",f:"pera"},{n:"Papaya",f:"papaya"},
+  {n:"Mirtillo",f:"mirtillo"},{n:"Arancia",f:"arancia"},{n:"Clementina",f:"clementina"},
+  {n:"Mandarino",f:"mandarino"},{n:"Susina",f:"susina"},{n:"Kiwi",f:"kiwi"},
+  {n:"Ananas",f:"ananas"},{n:"Uva",f:"uva"},{n:"Ciliegie",f:"ciliegie"},
+  {n:"Fico",f:"fico"},{n:"Melograno",f:"melograno"},{n:"Mango",f:"mango"},
+  {n:"Banana",f:"banana"},{n:"Avocado",f:"avocado"},
+];
+
+function FruttaPicker({grams, onSelect}) {
+  return (
+    <div onClick={function(e){if(e.target===e.currentTarget)onSelect(null);}} style={{
+      position:"fixed",inset:0,background:"rgba(0,0,0,0.7)",zIndex:500,display:"flex",alignItems:"flex-end",
+    }}>
+      <div style={{width:"100%",background:"#1C1C28",borderRadius:"20px 20px 0 0",
+        border:"1px solid rgba(255,255,255,0.12)",padding:"16px 16px 0",
+        paddingBottom:"calc(70px + env(safe-area-inset-bottom,0px) + 16px)",
+        maxHeight:"80vh",overflowY:"auto",WebkitOverflowScrolling:"touch"}}>
+        <div style={{width:36,height:4,background:"rgba(255,255,255,0.2)",borderRadius:2,margin:"0 auto 16px"}}/>
+        <div style={{fontSize:16,fontWeight:800,color:"rgba(255,255,255,0.95)",marginBottom:4}}>Che frutto?</div>
+        <div style={{fontSize:12,color:"rgba(255,255,255,0.4)",marginBottom:14}}>{grams}g</div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+          {FRUTTI.map(function(fr){
+            var n=calcKcal(fr.f,grams);
+            return (
+              <button key={fr.f} onClick={function(){onSelect(fr.f);}} style={{
+                padding:"11px 12px",borderRadius:12,border:"1px solid rgba(255,255,255,0.1)",
+                background:"rgba(255,255,255,0.06)",cursor:"pointer",textAlign:"left"}}>
+                <div style={{fontSize:14,fontWeight:700,color:"rgba(255,255,255,0.92)"}}>{fr.n}</div>
+                <div style={{fontSize:12,color:G.green,fontWeight:700}}>{n?n.kcal+" kcal":"—"}</div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Parsing helpers ───────────────────────────────────────────────────────────
 
 function parseComponents(label) {
@@ -1528,105 +1516,41 @@ function getLegumiProtein(label) {
 }
 
 // ── Single food option card ───────────────────────────────────────────────────
-const FRUTTI = [
-  {n:"Anguria",f:"anguria"},{n:"Fragola",f:"fragola"},{n:"Melone",f:"melone"},
-  {n:"Pesca",f:"pesca"},{n:"Pesca noce",f:"pesca noce"},{n:"Albicocca",f:"albicocca"},
-  {n:"Pompelmo",f:"pompelmo"},{n:"Lampone",f:"lampone"},{n:"Mora",f:"mora"},
-  {n:"Mela",f:"mela"},{n:"Pera",f:"pera"},{n:"Papaya",f:"papaya"},
-  {n:"Mirtillo",f:"mirtillo"},{n:"Arancia",f:"arancia"},{n:"Clementina",f:"clementina"},
-  {n:"Mandarino",f:"mandarino"},{n:"Susina",f:"susina"},{n:"Kiwi",f:"kiwi"},
-  {n:"Ananas",f:"ananas"},{n:"Uva",f:"uva"},{n:"Ciliegie",f:"ciliegie"},
-  {n:"Fico",f:"fico"},{n:"Melograno",f:"melograno"},{n:"Mango",f:"mango"},
-  {n:"Banana",f:"banana"},{n:"Avocado",f:"avocado"},
-];
-
-function FruttaPicker({grams, onSelect}) {
-  return (
-    <div onClick={function(e){if(e.target===e.currentTarget)onSelect(null);}} style={{
-      position:"fixed",inset:0,background:"rgba(0,0,0,0.7)",zIndex:500,
-      display:"flex",alignItems:"flex-end",
-    }}>
-      <div style={{
-        width:"100%",background:"#1C1C28",borderRadius:"20px 20px 0 0",
-        border:"1px solid rgba(255,255,255,0.12)",
-        padding:"16px 16px 0",
-        paddingBottom:"calc(70px + env(safe-area-inset-bottom,0px) + 16px)",
-        maxHeight:"80vh",overflowY:"auto",WebkitOverflowScrolling:"touch",
-      }}>
-        <div style={{width:36,height:4,background:"rgba(255,255,255,0.2)",borderRadius:2,margin:"0 auto 16px"}}/>
-        <div style={{fontSize:16,fontWeight:800,color:"rgba(255,255,255,0.95)",marginBottom:4}}>Che frutto?</div>
-        <div style={{fontSize:12,color:"rgba(255,255,255,0.4)",marginBottom:14}}>{grams}g</div>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
-          {FRUTTI.map(function(fr){
-            var n = calcKcal(fr.f, grams);
-            return (
-              <button key={fr.f} onClick={function(){onSelect(fr.f);}} style={{
-                padding:"11px 12px",borderRadius:12,border:"1px solid rgba(255,255,255,0.1)",
-                background:"rgba(255,255,255,0.06)",cursor:"pointer",textAlign:"left",
-              }}>
-                <div style={{fontSize:14,fontWeight:700,color:"rgba(255,255,255,0.92)"}}>{fr.n}</div>
-                <div style={{fontSize:12,color:G.green,fontWeight:700}}>{n?n.kcal+" kcal":"—"}</div>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-
-function FoodCard({opt, selected, onSelect, legumiProtein, proteinReduction, selectedFruit, onOpenFrutta}) {
+function FoodCard({opt, selected, onSelect, legumiProtein, selectedFruit, onFruitSelect, showFruttaPicker, onOpenFrutta}) {
   var label = (opt.label || opt || '');
   var note = (opt.note || '');
   var lbl = label.toUpperCase();
   var isFrutta = lbl.indexOf('FRUTTA') >= 0 && lbl.indexOf('SECCA') < 0;
   var isOlio = lbl.indexOf('OLIO') >= 0 && lbl.indexOf('VERDURA') >= 0;
-  var pr = proteinReduction || 0;
 
-  // Compute nutrition
   var nutrition = null;
-  if(isFrutta && selectedFruit) {
+  if(isFrutta && selected && selectedFruit) {
     var grams = parseMealOption(label).grams || 150;
     nutrition = calcKcal(selectedFruit, grams);
   } else if(isFrutta) {
-    nutrition = null; // must pick fruit first
+    var grams2 = parseMealOption(label).grams || 150;
+    nutrition = calcKcal('frutta', grams2);
   } else if(isOlio) {
-    var mOlio = label.match(/(\d+)\s*gr?\s+OLIO/i);
-    nutrition = calcKcal('olio evo', mOlio ? parseInt(mOlio[1]) : 20);
+    var m = label.match(/(\d+)\s*gr?\s+OLIO/i);
+    nutrition = calcKcal('olio evo', m ? parseInt(m[1]) : 20);
   } else {
     nutrition = calcMulti(label);
   }
 
-  // Apply protein gram reduction (from notes like "diminuisci fonte proteica di 50 gr")
-  var displayNutrition = nutrition;
-  var displayLabel = label;
-  if(pr > 0 && nutrition && !isFrutta && !isOlio) {
-    var parts = parseComponents(label);
-    if(parts.length > 0) {
-      var rKcal=0, rP=0, rC=0, rG=0;
-      var reducedLabels = [];
-      parts.forEach(function(pt) {
-        var newG = Math.max(0, pt.grams - pr);
-        var n = calcKcal(pt.food, newG);
-        if(n) { rKcal+=n.kcal; rP+=n.p; rC+=n.c; rG+=n.g; }
-        reducedLabels.push(newG+'g '+pt.food.toUpperCase());
-      });
-      displayNutrition = {kcal:Math.round(rKcal), p:Math.round(rP*10)/10, c:Math.round(rC*10)/10, g:Math.round(rG*10)/10};
-      displayLabel = reducedLabels.join(' + ') + ' (-'+pr+'g prot.)';
-    }
+  // Adjust protein if legumi already cover some
+  var displayP = nutrition ? nutrition.p : 0;
+  if(legumiProtein > 0 && nutrition && !isFrutta) {
+    displayP = Math.max(0, Math.round((nutrition.p - legumiProtein) * 10) / 10);
   }
 
-  // Adjust protein display for legumi coverage
-  var lp = legumiProtein || 0;
-  var displayP = displayNutrition ? Math.max(0, Math.round((displayNutrition.p - lp)*10)/10) : 0;
-
-  // Olio: show only olio part
-  if(isOlio) displayLabel = label.split('+')[0].trim();
-
-  // Frutta: replace FRUTTA with chosen fruit
-  if(isFrutta && selectedFruit) {
+  // Display label
+  var displayLabel = label;
+  if(isFrutta && selected && selectedFruit) {
     displayLabel = label.replace(/FRUTTA(?: DI STAGIONE)?/i, selectedFruit.charAt(0).toUpperCase()+selectedFruit.slice(1));
+  }
+  if(isOlio) {
+    var olioStr = label.split('+')[0].trim();
+    displayLabel = olioStr;
   }
 
   return (
@@ -1638,16 +1562,19 @@ function FoodCard({opt, selected, onSelect, legumiProtein, proteinReduction, sel
     }}>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:12}}>
         <div style={{flex:1}}>
-          <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:2}}>
+          <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:note||isOlio?4:0}}>
             {selected && <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><polyline points="20,6 9,17 4,12" stroke="#00C896" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>}
             <span style={{fontSize:13,fontWeight:selected?700:500,color:selected?G.text:G.text2,lineHeight:1.4}}>
               {displayLabel}
             </span>
           </div>
           {isOlio && <div style={{fontSize:11,color:G.text3}}>+ verdura libera</div>}
-          {note && !isOlio && !pr && <div style={{fontSize:11,color:G.orange,marginTop:2,lineHeight:1.4}}>{note}</div>}
-          {pr > 0 && <div style={{fontSize:11,color:G.orange,marginTop:2}}>Ridotto di {pr}g per i legumi</div>}
-          {lp > 0 && selected && nutrition && <div style={{fontSize:11,color:G.green,marginTop:2}}>{lp.toFixed(1)}g prot. già dai legumi</div>}
+          {note && !isOlio && <div style={{fontSize:11,color:G.orange,marginTop:2,lineHeight:1.4}}>{note}</div>}
+          {legumiProtein > 0 && selected && !isFrutta && nutrition && nutrition.p > 0 && (
+            <div style={{fontSize:11,color:G.green,marginTop:4}}>
+              Di cui {legumiProtein.toFixed(1)}g prot. già dai legumi
+            </div>
+          )}
           {isFrutta && selected && (
             <button onClick={function(e){e.stopPropagation();onOpenFrutta();}} style={{
               marginTop:6,padding:'3px 8px',borderRadius:7,border:'1px solid '+G.orange,
@@ -1657,24 +1584,22 @@ function FoodCard({opt, selected, onSelect, legumiProtein, proteinReduction, sel
             </button>
           )}
         </div>
-        {isFrutta && !selectedFruit ? (
+        {nutrition && (
           <div style={{textAlign:'right',flexShrink:0}}>
-            <div style={{fontSize:11,color:G.orange,fontWeight:700}}>Scegli</div>
-            <div style={{fontSize:11,color:G.orange,fontWeight:700}}>frutto</div>
-          </div>
-        ) : displayNutrition ? (
-          <div style={{textAlign:'right',flexShrink:0}}>
-            <div style={{fontSize:15,fontWeight:800,color:selected?G.green:G.text3}}>{displayNutrition.kcal}</div>
+            <div style={{fontSize:15,fontWeight:800,color:selected?G.green:G.text3}}>{nutrition.kcal}</div>
             <div style={{fontSize:9,color:G.text3}}>kcal</div>
-            <div style={{fontSize:10,color:G.text3,marginTop:2}}>P{displayP} C{displayNutrition.c} G{displayNutrition.g}</div>
+            <div style={{fontSize:10,color:G.text3,marginTop:2}}>
+              P{displayP} C{nutrition.c} G{nutrition.g}
+            </div>
           </div>
-        ) : null}
+        )}
       </div>
     </button>
   );
 }
 
-function GroupSelector({group, groupIdx, mealIdx, selections, selectedFruits, onSelect, onFruitSelect, legumiProtein, proteinReduction}) {
+// ── Single group (Fonte proteica, Frutta, ecc.) ───────────────────────────────
+function GroupSelector({group, groupIdx, mealIdx, selections, selectedFruits, onSelect, onFruitSelect, legumiProtein}) {
   var [showFrutta, setShowFrutta] = useState(false);
   var selIdx = selections[groupIdx];
 
@@ -1701,7 +1626,6 @@ function GroupSelector({group, groupIdx, mealIdx, selections, selectedFruits, on
               selected={selIdx === oi}
               onSelect={function(){onSelect(groupIdx, oi);}}
               legumiProtein={lp}
-              proteinReduction={proteinReduction||0}
               selectedFruit={selectedFruits[mealIdx+'_'+groupIdx]}
               onFruitSelect={function(){}}
               onOpenFrutta={function(){setShowFrutta(true);}}
@@ -1720,16 +1644,13 @@ function MealCard({meal, mealIdx, selections, selectedFruits, onSelect, onFruitS
   var totalP = 0, totalC = 0, totalG = 0;
   var legumiProtein = 0;
 
-  // First pass: find legumi selection to compute protein offset + gram reduction
-  var proteinReduction = 0;
+  // First pass: find legumi selection to compute protein offset
   meal.groups.forEach(function(group, gi) {
     var selIdx = selections[gi];
     if(selIdx == null) return;
     var opt = group.options[selIdx];
     var lbl = (opt && opt.label) ? opt.label : (opt || '');
-    var note = (opt && opt.note) ? opt.note : '';
     legumiProtein += getLegumiProtein(lbl);
-    proteinReduction = Math.max(proteinReduction, getProteinReduction(note));
   });
 
   // Second pass: compute nutrition
@@ -1803,7 +1724,6 @@ function MealCard({meal, mealIdx, selections, selectedFruits, onSelect, onFruitS
                 onSelect={onSelect}
                 onFruitSelect={onFruitSelect}
                 legumiProtein={lp}
-                proteinReduction={group.label.toLowerCase().indexOf('proteic')>=0 ? proteinReduction : 0}
               />
             );
           })}
@@ -2011,184 +1931,131 @@ function loadDiet() { try{var s=localStorage.getItem(DIET_KEY);return s?JSON.par
 function saveDiet(d) { try{localStorage.setItem(DIET_KEY,JSON.stringify(d));}catch{} }
 
 function PassiChart({cycles}) {
-  var data = [];
-  cycles.forEach(function(c) {
-    var s1 = parseInt(c.mediaPassiSett1)||0;
-    var s2 = parseInt(c.mediaPassiSett2)||0;
-    if(s1>0) data.push({label:"C"+(c.id+1)+" S1", val:s1, cycleId:c.id, sett:1, date:c.startDate});
-    if(s2>0) data.push({label:"C"+(c.id+1)+" S2", val:s2, cycleId:c.id, sett:2, date:c.startDate});
-  });
+  // Collect cycles that have at least one passi value
+  const data = cycles
+    .filter(c => c.mediaPassiSett1 || c.mediaPassiSett2)
+    .map(c => ({
+      label: `C${c.id+1}`,
+      startDate: c.startDate,
+      s1: parseInt(c.mediaPassiSett1)||0,
+      s2: parseInt(c.mediaPassiSett2)||0,
+    }));
 
   if(data.length === 0) return (
-    <div style={{background:G.card,borderRadius:18,padding:"20px 18px",marginBottom:12,border:"1px solid "+G.border}}>
-      <div style={{fontSize:13,fontWeight:800,color:G.text,marginBottom:4}}>Passi medi</div>
+    <Card style={{padding:'14px 16px',marginBottom:14}}>
+      <div style={{fontSize:13,fontWeight:800,color:G.text,marginBottom:4}}>🚶 Media Passi per Ciclo</div>
       <div style={{fontSize:12,color:G.text3}}>Nessun dato passi disponibile</div>
-    </div>
+    </Card>
   );
 
-  var vals = data.map(function(d){return d.val;});
-  var maxV = Math.max.apply(null, vals);
-  var minV = Math.min.apply(null, vals);
-  var avgV = Math.round(vals.reduce(function(a,b){return a+b;},0)/vals.length);
-  var fmt = function(v){return v>=1000?(v/1000).toFixed(1)+"k":String(v);};
+  const allVals = data.flatMap(d=>[d.s1,d.s2]).filter(v=>v>0);
+  const maxVal = Math.max(...allVals);
+  const W = 320, H = 120, PL = 36, PR = 8, PT = 8, PB = 22;
+  const cW = W - PL - PR, cH = H - PT - PB;
+  const barGroupW = cW / data.length;
+  const barW = Math.min(14, barGroupW * 0.35);
+  const gap = 3;
+  const toH = v => v > 0 ? Math.max(4, (v / maxVal) * cH) : 0;
+  const toY = v => PT + cH - toH(v);
 
-  // Trend line (linear regression over index)
-  var n = data.length;
-  var xs = data.map(function(_,i){return i;});
-  var ys = vals;
-  var mx = (n-1)/2;
-  var my = avgV;
-  var num = xs.reduce(function(s,x,i){return s+(x-mx)*(ys[i]-my);},0);
-  var den = xs.reduce(function(s,x){return s+(x-mx)*(x-mx);},0);
-  var slope = den ? num/den : 0;
-  var intercept = my - slope*mx;
-  var trendUp = slope > 50;
-  var trendDown = slope < -50;
-  var trendColor = trendUp ? G.ok : trendDown ? G.coral : G.text3;
-  var trendLabel = trendUp ? "↑ In crescita" : trendDown ? "↓ In calo" : "→ Stabile";
+  // Y axis labels (round to nearest 1000)
+  const yStep = maxVal > 10000 ? 2000 : 1000;
+  const yLabels = [];
+  for(let v = 0; v <= maxVal; v += yStep) yLabels.push(v);
+  if(yLabels[yLabels.length-1] < maxVal) yLabels.push(Math.ceil(maxVal/yStep)*yStep);
 
-  // SVG
-  var W=340, H=140, PL=40, PR=12, PT=12, PB=36;
-  var cW=W-PL-PR, cH=H-PT-PB;
-  var toX = function(i){return PL+(i/Math.max(data.length-1,1))*cW;};
-  var toY = function(v){
-    var rng = maxV-minV||1000;
-    return PT+cH-((v-minV)/rng)*cH;
-  };
-
-  // Build SVG path
-  var pathD = data.map(function(d,i){
-    return (i===0?"M ":"L ")+toX(i)+" "+toY(d.val);
-  }).join(" ");
-
-  var areaD = pathD+" L "+toX(data.length-1)+" "+(PT+cH)+" L "+toX(0)+" "+(PT+cH)+" Z";
-
-  // Trend line
-  var ty0 = toY(intercept);
-  var ty1 = toY(intercept+slope*(n-1));
-  // Clamp to chart area
-  var clamp = function(v){return Math.max(PT, Math.min(PT+cH, v));};
-
-  // Y labels
-  var yMid = Math.round((minV+maxV)/2);
-  var yLabels = [minV, yMid, maxV];
-
-  // Cycle boundary lines
-  var cycleIds = [];
-  data.forEach(function(d,i){
-    if(i>0 && d.cycleId !== data[i-1].cycleId) cycleIds.push(i);
-  });
+  const avg1 = data.reduce((a,d)=>a+d.s1,0)/data.filter(d=>d.s1>0).length||0;
+  const avg2 = data.reduce((a,d)=>a+d.s2,0)/data.filter(d=>d.s2>0).length||0;
 
   return (
-    <div style={{background:G.card,borderRadius:18,padding:"16px 16px 12px",marginBottom:12,border:"1px solid "+G.border}}>
-      {/* Header */}
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:14}}>
-        <div>
-          <div style={{fontSize:13,fontWeight:800,color:G.text,marginBottom:2}}>Passi medi</div>
-          <div style={{fontSize:11,color:G.text3}}>{data.length} rilevazioni · {cycles.filter(function(c){return c.mediaPassiSett1||c.mediaPassiSett2;}).length} cicli</div>
-        </div>
-        <div style={{textAlign:"right"}}>
-          <div style={{fontSize:22,fontWeight:900,color:G.orange,letterSpacing:-1}}>{fmt(avgV)}</div>
-          <div style={{fontSize:11,color:trendColor,fontWeight:700}}>{trendLabel}</div>
-        </div>
+    <Card style={{padding:'14px 14px',marginBottom:14}}>
+      <div style={{fontSize:13,fontWeight:800,color:G.text,marginBottom:2}}>🚶 Media Passi per Ciclo</div>
+      <div style={{fontSize:11,color:G.text3,marginBottom:10}}>
+        Media S.1: <b style={{color:G.orange}}>{avg1>0?Math.round(avg1).toLocaleString('it-IT'):'—'}</b>
+        {' · '}
+        Media S.2: <b style={{color:'#8D6E63'}}>{avg2>0?Math.round(avg2).toLocaleString('it-IT'):'—'}</b>
       </div>
 
-      {/* Chart */}
-      <svg width="100%" viewBox={"0 0 "+W+" "+H} style={{display:"block",overflow:"visible"}}>
-        <defs>
-          <linearGradient id="passiGrad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#FF9F0A" stopOpacity="0.25"/>
-            <stop offset="100%" stopColor="#FF9F0A" stopOpacity="0.02"/>
-          </linearGradient>
-        </defs>
+      {/* Legend */}
+      <div style={{display:'flex',gap:14,marginBottom:10}}>
+        {[{c:G.orange,l:'Settimana 1'},{c:'#8D6E63',l:'Settimana 2'}].map(({c,l})=>(
+          <div key={l} style={{display:'flex',alignItems:'center',gap:4}}>
+            <div style={{width:10,height:10,borderRadius:3,background:c,flexShrink:0}}/>
+            <span style={{fontSize:10,color:G.text3,fontWeight:600}}>{l}</span>
+          </div>
+        ))}
+      </div>
 
-        {/* Y grid */}
-        {yLabels.map(function(v,i){return (
+      <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{overflow:'visible'}}>
+        {/* Y grid + labels */}
+        {yLabels.filter(v=>v<=maxVal*1.05).map((v,i)=>(
           <g key={i}>
             <line x1={PL} y1={toY(v)} x2={W-PR} y2={toY(v)}
-              stroke="rgba(255,255,255,0.06)" strokeWidth="1"/>
-            <text x={PL-5} y={toY(v)+4} textAnchor="end" fontSize="9" fill="rgba(255,255,255,0.3)">
-              {fmt(v)}
+              stroke={G.border} strokeWidth="1" strokeDasharray="3,3"/>
+            <text x={PL-4} y={toY(v)+4} textAnchor="end" fontSize="8" fill={G.text3}>
+              {v>=1000?(v/1000).toFixed(0)+'k':v}
             </text>
           </g>
-        );})}
+        ))}
 
-        {/* Average line */}
-        <line x1={PL} y1={toY(avgV)} x2={W-PR} y2={toY(avgV)}
-          stroke="rgba(255,159,10,0.3)" strokeWidth="1" strokeDasharray="4,3"/>
-
-        {/* Cycle boundaries */}
-        {cycleIds.map(function(i){return (
-          <line key={i} x1={toX(i)} y1={PT} x2={toX(i)} y2={PT+cH}
-            stroke="rgba(255,255,255,0.08)" strokeWidth="1" strokeDasharray="2,3"/>
-        );})}
-
-        {/* Area */}
-        <path d={areaD} fill="url(#passiGrad)"/>
-
-        {/* Trend line */}
-        {n>=3&&<line x1={toX(0)} y1={clamp(ty0)} x2={toX(n-1)} y2={clamp(ty1)}
-          stroke={trendColor} strokeWidth="1.5" strokeDasharray="5,3" opacity="0.6"/>}
-
-        {/* Line */}
-        <path d={pathD} fill="none" stroke="#FF9F0A" strokeWidth="2.2"
-          strokeLinecap="round" strokeLinejoin="round"/>
-
-        {/* Dots */}
-        {data.map(function(d,i){
-          var x=toX(i), y=toY(d.val);
-          var col = d.sett===1?"#FF9F0A":"#E65100";
-          var showLabel = data.length<=12 || i===0 || i===data.length-1 || i%2===0;
+        {/* Bars */}
+        {data.map((d,i)=>{
+          const cx = PL + i * barGroupW + barGroupW/2;
+          const x1 = cx - barW - gap/2;
+          const x2 = cx + gap/2;
+          const h1 = toH(d.s1), h2 = toH(d.s2);
+          const y1 = toY(d.s1), y2 = toY(d.s2);
           return (
             <g key={i}>
-              <circle cx={x} cy={y} r="4.5" fill="#13131A" stroke={col} strokeWidth="2"/>
-              <circle cx={x} cy={y} r="2" fill={col}/>
-              {showLabel&&<text x={x} y={H-2} textAnchor="middle" fontSize="8" fill="rgba(255,255,255,0.3)">
+              {/* S1 bar */}
+              {d.s1>0&&<>
+                <rect x={x1} y={y1} width={barW} height={h1} rx="3" fill={G.orange} opacity="0.85"/>
+                {h1>14&&<text x={x1+barW/2} y={y1+h1-3} textAnchor="middle" fontSize="7" fill="#fff" fontWeight="700">
+                  {d.s1>=1000?(d.s1/1000).toFixed(1)+'k':d.s1}
+                </text>}
+              </>}
+              {/* S2 bar */}
+              {d.s2>0&&<>
+                <rect x={x2} y={y2} width={barW} height={h2} rx="3" fill="#8D6E63" opacity="0.85"/>
+                {h2>14&&<text x={x2+barW/2} y={y2+h2-3} textAnchor="middle" fontSize="7" fill="#fff" fontWeight="700">
+                  {d.s2>=1000?(d.s2/1000).toFixed(1)+'k':d.s2}
+                </text>}
+              </>}
+              {/* X label */}
+              <text x={cx} y={H-2} textAnchor="middle" fontSize="8" fill={G.text3} fontWeight="700">
                 {d.label}
-              </text>}
-              {data.length<=8&&<text x={x} y={y-8} textAnchor="middle" fontSize="8" fontWeight="700" fill={col}>
-                {fmt(d.val)}
-              </text>}
+              </text>
             </g>
           );
         })}
+
+        {/* Average lines */}
+        {avg1>0&&<line x1={PL} y1={toY(avg1)} x2={W-PR} y2={toY(avg1)}
+          stroke={G.orange} strokeWidth="1" strokeDasharray="4,3" opacity="0.5"/>}
+        {avg2>0&&<line x1={PL} y1={toY(avg2)} x2={W-PR} y2={toY(avg2)}
+          stroke="#8D6E63" strokeWidth="1" strokeDasharray="4,3" opacity="0.5"/>}
       </svg>
 
-      {/* Legend */}
-      <div style={{display:"flex",gap:16,marginTop:8}}>
-        {[{c:"#FF9F0A",l:"Settimana 1"},{c:"#E65100",l:"Settimana 2"},{c:trendColor,l:trendLabel,dashed:true}].map(function(item,i){return (
-          <div key={i} style={{display:"flex",alignItems:"center",gap:4}}>
-            {item.dashed
-              ? <svg width="16" height="4"><line x1="0" y1="2" x2="16" y2="2" stroke={item.c} strokeWidth="2" strokeDasharray="4,2"/></svg>
-              : <div style={{width:10,height:10,borderRadius:2,background:item.c,flexShrink:0}}/>
-            }
-            <span style={{fontSize:10,color:G.text3,fontWeight:600}}>{item.l}</span>
-          </div>
-        );})}
-      </div>
-
-      {/* Per-cycle summary */}
-      {cycles.filter(function(c){return c.mediaPassiSett1||c.mediaPassiSett2;}).length > 1 && (
-        <div style={{marginTop:12,display:"flex",gap:6,flexWrap:"wrap"}}>
-          {cycles.filter(function(c){return c.mediaPassiSett1||c.mediaPassiSett2;}).map(function(c){
-            var s1=parseInt(c.mediaPassiSett1)||0, s2=parseInt(c.mediaPassiSett2)||0;
-            var avg2 = s1&&s2?Math.round((s1+s2)/2):s1||s2;
-            return (
-              <div key={c.id} style={{background:"rgba(255,255,255,0.04)",borderRadius:10,
-                padding:"8px 10px",border:"1px solid "+G.border,flex:"1 1 auto",minWidth:80}}>
-                <div style={{fontSize:10,fontWeight:800,color:G.text3,marginBottom:4}}>Ciclo #{c.id+1}</div>
-                <div style={{fontSize:14,fontWeight:800,color:G.orange}}>{fmt(avg2)}</div>
-                {s1&&s2&&<div style={{fontSize:9,color:G.text3,marginTop:1}}>{fmt(s1)} · {fmt(s2)}</div>}
+      {/* Cycle detail */}
+      {data.length > 1 && (
+        <div style={{marginTop:8,display:'flex',gap:6,flexWrap:'wrap'}}>
+          {data.map((d,i)=>(
+            <div key={i} style={{background:'#F7FAF5',borderRadius:8,padding:'5px 9px',border:`1px solid ${G.border}`}}>
+              <div style={{fontSize:10,fontWeight:800,color:G.text3}}>{d.label} · {d.startDate}</div>
+              <div style={{fontSize:11,marginTop:2}}>
+                <span style={{color:G.orange,fontWeight:700}}>{d.s1>0?d.s1.toLocaleString('it-IT'):'—'}</span>
+                <span style={{color:G.text3,margin:'0 3px'}}>·</span>
+                <span style={{color:'#8D6E63',fontWeight:700}}>{d.s2>0?d.s2.toLocaleString('it-IT'):'—'}</span>
               </div>
-            );
-          })}
+            </div>
+          ))}
         </div>
       )}
-    </div>
+    </Card>
   );
 }
 
-
+// ── Screen: Prossima Visita ────────────────────────────────────────────────────
 function ScreenProssimaVisita({ultimaVisita, onSave}) {
   const [visita, setVisita] = useState('');
   const visitaOk = visita.length===10 && !!dateFromStr(visita);
@@ -2249,6 +2116,7 @@ function ScreenProssimaVisita({ultimaVisita, onSave}) {
   );
 }
 
+
 function ScreenGrafico({cycles, onBack}) {
   var RANGES = ['2S','1M','3M','1A'];
   var RLAB = {'2S':'2 Sett.','1M':'1 Mese','3M':'3 Mesi','1A':'Anno'};
@@ -2305,7 +2173,7 @@ function ScreenGrafico({cycles, onBack}) {
   function renderPeso() {
     if(pesoPoints.length<2) return (
       <div style={{textAlign:'center',padding:'40px 20px',color:G.text3}}>
-        <div style={{fontSize:32,marginBottom:8}}><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 3v18" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/><path d="M5 8a7 7 0 0014 0" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/><path d="M3 8h18" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/><line x1="5" y1="21" x2="19" y2="21" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg></div>
+        <div style={{fontSize:32,marginBottom:8}}>⚖️</div>
         <div style={{fontSize:14}}>Nessuna misurazione nel periodo</div>
       </div>
     );
@@ -2384,7 +2252,7 @@ function ScreenGrafico({cycles, onBack}) {
   function renderKcal() {
     if(kcalPoints.length===0) return (
       <div style={{textAlign:'center',padding:'40px 20px',color:G.text3}}>
-        <div style={{fontSize:32,marginBottom:8}}><svg width="30" height="30" viewBox="0 0 24 24" fill="none"><path d="M12 2c0 0-4 5-4 10a4 4 0 008 0c0-1.5-.5-3-1-4 0 0-1 2-2 2s-2-1-2-2c0-2 1-4 1-6z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/></svg></div>
+        <div style={{fontSize:32,marginBottom:8}}>🔥</div>
         <div style={{fontSize:14}}>Nessuna caloria registrata</div>
         <div style={{fontSize:12,marginTop:6}}>Salva le kcal dalla scheda Dieta</div>
       </div>
@@ -2565,127 +2433,60 @@ function App() {
   const [activeDayIdx,setActiveDayIdx]=useState(null);
   const [viewingCycleId,setViewingCycleId]=useState(null);
 
+  useEffect(()=>{saveState({profile,cycles});},[profile,cycles]);
   useEffect(()=>{
-    saveState({profile,cycles});
-  },[profile,cycles]);
-
-  // Force-save on iOS PWA close/background
-  useEffect(()=>{
-    var handler = function() { saveState({profile,cycles}); };
-    window.addEventListener('pagehide', handler);
-    window.addEventListener('beforeunload', handler);
-    document.addEventListener('visibilitychange', function() {
-      if(document.visibilityState === 'hidden') saveState({profile,cycles});
-    });
-    return function() {
-      window.removeEventListener('pagehide', handler);
-      window.removeEventListener('beforeunload', handler);
-    };
+    var handler=function(){saveState({profile,cycles});};
+    window.addEventListener('pagehide',handler);
+    document.addEventListener('visibilitychange',function(){if(document.visibilityState==='hidden')saveState({profile,cycles});});
+    return function(){window.removeEventListener('pagehide',handler);};
   },[profile,cycles]);
 
   const currentCycle=cycles.length>0?cycles[cycles.length-1]:null;
   const closedCycle=cycles.slice().reverse().find(c=>c.exported&&!c.completed)||null;
 
-  const handleSetup=p=>{
-    setProfile({...p});
-    if(cycles.length===0){
-      const startDate=p.visitaNutrizionista?getCycleStart(p.visitaNutrizionista):new Date();
-      setCycles([makeNewCycle(startDate,p.mediaPesoPrecIniziale||"",0)]);
-    }
-    setScreen("main");
-  };
+  const handleSetup=p=>{setProfile({...p});if(cycles.length===0){const s=p.visitaNutrizionista?getCycleStart(p.visitaNutrizionista):new Date();setCycles([makeNewCycle(s,p.mediaPesoPrecIniziale||"",0)]);}setScreen("main");};
   const handleExcelImport=(prof,cycs)=>{
-    // Merge imported cycles with existing ones, avoid duplicates by startDate
     setCycles(prev=>{
-      const existing = prev.filter(c=>c.completed||c.exported);
-      const merged = [...existing];
-      cycs.forEach(newC=>{
-        const dup = merged.find(c=>c.startDate===newC.startDate);
-        if(!dup) merged.push(newC);
-      });
-      // Re-assign sequential IDs sorted by date
-      merged.sort((a,b)=>{
-        const da=dateFromStr(a.startDate), db=dateFromStr(b.startDate);
-        return (da||0)-(db||0);
-      });
+      const merged=[...prev.filter(c=>c.completed||c.exported)];
+      cycs.forEach(nc=>{if(!merged.find(c=>c.startDate===nc.startDate))merged.push(nc);});
+      merged.sort((a,b)=>(dateFromStr(a.startDate)||0)-(dateFromStr(b.startDate)||0));
       return merged.map((c,i)=>({...c,id:i}));
     });
-    if(!profile) setProfile(p=>({...p,...prof}));
+    if(!profile)setProfile(p=>({...p,...prof}));
     setScreen(profile?"main":"setup");
   };
   const handleDeleteCycle=id=>{setCycles(p=>{const f=p.filter(c=>c.id!==id);return f.map((c,i)=>({...c,id:i}));});};
   const handleNewCycle=()=>{
     if(cycles.some(c=>c.exported&&!c.completed))return;
     const lastRef=cycles.slice().reverse().find(c=>c.exported||c.completed);
-    // Media peso: prendi dalla settimana 2 dell'ultimo ciclo
     let mediaPesoPrec=profile?.mediaPesoPrecIniziale||"";
     if(lastRef?.days?.length>0){
       const lDays=lastRef.days,lHalf=Math.ceil(lDays.length/2);
-      const val=avg(lDays.slice(lHalf).filter(d=>d.peso))??
-        (lastRef.mediaS2?parseFloat(lastRef.mediaS2):null)??avg(lDays.filter(d=>d.peso))??"";
+      const val=avg(lDays.slice(lHalf).filter(d=>d.peso))??(lastRef.mediaS2?parseFloat(lastRef.mediaS2):null)??avg(lDays.filter(d=>d.peso))??"";
       mediaPesoPrec=val!==""?String(val):"";
     }
-    // Data inizio: usa la data visita dal profilo se è impostata e successiva
-    // all'ultimo ciclo, altrimenti giorno dopo l'ultimo ciclo
     let startDate=new Date();
-    const visitaDate = profile?.visitaNutrizionista ? getCycleStart(profile.visitaNutrizionista) : null;
+    const visitaDate=profile?.visitaNutrizionista?getCycleStart(profile.visitaNutrizionista):null;
     if(lastRef?.days?.length>0){
       const ld=lastRef.days[lastRef.days.length-1];
-      if(ld){
-        const lastDay=dateFromStr(ld.data);
-        if(lastDay){
-          const dayAfterLast=new Date(lastDay);
-          dayAfterLast.setDate(lastDay.getDate()+1);
-          // Usa la data visita SOLO se è successiva all'ultimo ciclo
-          if(visitaDate && visitaDate > lastDay){
-            startDate = visitaDate;
-          } else {
-            startDate = dayAfterLast;
-          }
-        }
-      }
-    } else if(visitaDate){
-      startDate = visitaDate;
-    }
+      if(ld){const lastDay=dateFromStr(ld.data);if(lastDay){const dayAfter=new Date(lastDay);dayAfter.setDate(lastDay.getDate()+1);startDate=visitaDate&&visitaDate>lastDay?visitaDate:dayAfter;}}
+    } else if(visitaDate) startDate=visitaDate;
     setCycles(p=>[...p,makeNewCycle(startDate,mediaPesoPrec,p.length)]);
   };
-  const handleChiudiCiclo=()=>{
-    setCycles(prev=>prev.map((c,i)=>{
-      if(i!==prev.length-1)return c;
-      const half=Math.ceil(c.days.length/2);
-      const m1=avg(c.days.slice(0,half).filter(d=>d.peso));
-      const m2=c.days.length>=7?avg(c.days.slice(half).filter(d=>d.peso)):null;
-      return{...c,exported:true,completed:false,mediaS1:m1?String(m1):"",mediaS2:m2?String(m2):""};
-    }));
-  };
+  const handleChiudiCiclo=()=>{setCycles(prev=>prev.map((c,i)=>{if(i!==prev.length-1)return c;const half=Math.ceil(c.days.length/2);const m1=avg(c.days.slice(0,half).filter(d=>d.peso));const m2=c.days.length>=7?avg(c.days.slice(half).filter(d=>d.peso)):null;return{...c,exported:true,completed:false,mediaS1:m1?String(m1):"",mediaS2:m2?String(m2):""};}));};
   const handleSavePassi=(s1,s2)=>setCycles(p=>p.map((c,i)=>i===p.length-1?{...c,mediaPassiSett1:s1,mediaPassiSett2:s2}:c));
   const handleOpenDay=idx=>{setActiveDayIdx(idx);setScreen("day");};
-  const handleSaveDay=d=>{
-    setCycles(prev=>prev.map((c,i)=>i!==prev.length-1?c:{...c,days:c.days.map((dd,di)=>di===activeDayIdx?{...dd,...d}:dd)}));
-    setScreen("main");
-  };
-  const handleSaveFeedback=fb=>{
-    setCycles(p=>{let found=false;return p.slice().reverse().map(c=>{if(!found&&c.exported&&!c.completed){found=true;return{...c,feedback:fb};}return c;}).reverse();});
-    setScreen("chiusura");
-  };
-  const handleConfirmExport=()=>{
-    setCycles(p=>{let found=false;return p.slice().reverse().map(c=>{if(!found&&c.exported&&!c.completed){found=true;return{...c,completed:true};}return c;}).reverse();});
-    setScreen("main");
-    handleNewCycle();
-  };
+  const handleSaveDay=d=>{setCycles(prev=>prev.map((c,i)=>i!==prev.length-1?c:{...c,days:c.days.map((dd,di)=>di===activeDayIdx?{...dd,...d}:dd)}));setScreen("main");};
+  const handleSaveFeedback=fb=>{setCycles(p=>{let found=false;return p.slice().reverse().map(c=>{if(!found&&c.exported&&!c.completed){found=true;return{...c,feedback:fb};}return c;}).reverse();});setScreen("chiusura");};
+  const handleConfirmExport=()=>{setCycles(p=>{let found=false;return p.slice().reverse().map(c=>{if(!found&&c.exported&&!c.completed){found=true;return{...c,completed:true};}return c;}).reverse();});setScreen("main");handleNewCycle();};
   const handleProssimaVisita=v=>{if(v&&dateFromStr(v))setProfile(p=>({...p,visitaNutrizionista:v}));setScreen("main");};
 
-  if(screen==="import") return <ScreenImportExcel onImport={handleExcelImport} onBack={()=>setScreen(profile?"main":"setup")} existingCycles={cycles}/>;
-  if(!profile || screen==="setup"||screen==="setup_complete") return <ScreenSetup
-    onDone={handleSetup}
-    onImport={()=>setScreen("import")}
-    prefill={profile}
-  />;
+  if(screen==="import") return <ScreenImportExcel onImport={handleExcelImport} onBack={()=>setScreen(profile?"main":"setup")}/>;
+  if(!profile||screen==="setup") return <ScreenSetup onDone={handleSetup} onImport={()=>setScreen("import")}/>;
   if(screen==="day") return <ScreenDay cycle={currentCycle} dayIdx={activeDayIdx} onSave={handleSaveDay} onBack={()=>setScreen("main")}/>;
   if(screen==="feedback"&&closedCycle) return <ScreenFeedback cycle={closedCycle} onSave={handleSaveFeedback} onBack={()=>setScreen("main")}/>;
   if(screen==="chiusura"&&closedCycle) return <ScreenReport profile={profile} cycle={closedCycle} onConfirm={handleConfirmExport} onBack={()=>setScreen("main")}/>;
   if(screen==="prossima") return <ScreenProssimaVisita ultimaVisita={profile.visitaNutrizionista} onSave={handleProssimaVisita}/>;
-  if(screen==="profilo") return <ScreenProfilo profile={profile} onSave={p=>setProfile(p)} onBack={()=>setScreen("main")} onImport={()=>setScreen("import")}/>;
   if(screen==="previous"){const c=cycles.find(c=>c.id===viewingCycleId);if(c)return <ScreenPrevious cycle={c} profile={profile} onConfirm={c.exported&&!c.completed?()=>setScreen("chiusura"):null} onBack={()=>setScreen("main")}/>;}
 
   const TAB_H=70;
@@ -2697,12 +2498,13 @@ function App() {
   };
   const TABS=[{id:"oggi",label:"Oggi"},{id:"grafico",label:"Andamento"},{id:"dieta",label:"Dieta"},{id:"profilo_tab",label:"Profilo"}];
   const tabContent=()=>{
-    if(tab==="oggi") return <ScreenDashboard profile={profile} cycles={cycles} onOpenDay={handleOpenDay}
-      onOpenFeedback={()=>setScreen("feedback")} onNewCycle={handleNewCycle}
-      onOpenReport={()=>setScreen("chiusura")} onOpenPrevious={id=>{setViewingCycleId(id);setScreen("previous");}}
+    if(tab==="oggi") return <ScreenDashboard profile={profile} cycles={cycles}
+      onOpenDay={handleOpenDay} onOpenFeedback={()=>setScreen("feedback")}
+      onNewCycle={handleNewCycle} onOpenReport={()=>setScreen("chiusura")}
+      onOpenPrevious={id=>{setViewingCycleId(id);setScreen("previous");}}
       onOpenProfilo={()=>setTab("profilo_tab")} onOpenGrafico={()=>setTab("grafico")}
       onOpenDieta={()=>setTab("dieta")} onChiudiCiclo={handleChiudiCiclo}
-      onSavePassi={handleSavePassi} onDeleteCycle={handleDeleteCycle} onOpenImport={()=>setScreen("import")}/>;
+      onSavePassi={handleSavePassi} onDeleteCycle={handleDeleteCycle}/>;
     if(tab==="grafico") return <ScreenGrafico cycles={cycles} onBack={null}/>;
     if(tab==="dieta") return <ScreenDieta onBack={null}/>;
     return <ScreenProfilo profile={profile} onSave={p=>setProfile(p)} onBack={null} onImport={()=>setScreen("import")}/>;
@@ -2710,17 +2512,14 @@ function App() {
   return (
     <div style={{minHeight:"100vh",background:G.bg,paddingBottom:"calc("+TAB_H+"px + env(safe-area-inset-bottom,16px) + 20px)"}}>
       <div>{tabContent()}</div>
-      <div style={{position:"fixed",bottom:0,left:0,right:0,
-        minHeight:TAB_H,
+      <div style={{position:"fixed",bottom:0,left:0,right:0,minHeight:TAB_H,
         paddingBottom:"env(safe-area-inset-bottom,16px)",
         background:"rgba(12,12,20,0.97)",borderTop:"1px solid "+G.border,
         backdropFilter:"blur(20px)",WebkitBackdropFilter:"blur(20px)",
         display:"flex",alignItems:"flex-start",paddingTop:8,zIndex:100}}>
         {TABS.map(t=>(
-          <div key={t.id} onClick={()=>setTab(t.id)} style={{flex:1,display:"flex",flexDirection:"column",
-            alignItems:"center",gap:3,cursor:"pointer"}}>
-            <div style={{color:tab===t.id?G.green:"rgba(255,255,255,0.35)"}}
-              dangerouslySetInnerHTML={{__html:tabIcons[t.id]}}/>
+          <div key={t.id} onClick={()=>setTab(t.id)} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:3,cursor:"pointer"}}>
+            <div style={{color:tab===t.id?G.green:"rgba(255,255,255,0.35)"}} dangerouslySetInnerHTML={{__html:tabIcons[t.id]}}/>
             <div style={{fontSize:10,fontWeight:700,color:tab===t.id?G.green:"rgba(255,255,255,0.35)"}}>{t.label}</div>
             {tab===t.id&&<div style={{width:20,height:2,borderRadius:1,background:G.green}}/>}
           </div>
